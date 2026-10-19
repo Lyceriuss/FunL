@@ -1,0 +1,19 @@
+{
+  "id": "example-week-42",
+  "title": "Week 42 homework",
+  "description": "Transcribed from a paper worksheet",
+  "order": "shuffle",
+  "travelMs": 12000,
+  "speedUp": 0.95,
+  "lanes": 2,
+  "problems": [
+    { "a": 3, "op": "+", "b": 4 },
+    { "a": 8, "op": "+", "b": 5, "answer": 13 },
+    { "a": 12, "op": "-", "b": 7 },
+    { "a": 6, "op": "×", "b": 3 },
+    { "a": 20, "op": "÷", "b": 4 },
+    { "a": 9, "op": "+", "b": 9 },
+    { "a": 15, "op": "-", "b": 8 },
+    { "a": 7, "op": "×", "b": 7 }
+  ]
+}
