@@ -36,6 +36,8 @@ src/
     log/                   Logger (diagnostics), IndexedDB log sink, global error capture
     modules/               GameModule contract, registry, per-player settings
     mental-math/           How people calculate: strategies, reasoning steps, notes and typical slips (docs/MENTAL-MATH.md)
+    audio/                 Synthesised sound effects + generative music by mood, settings, Sound panel (docs/AUDIO.md)
+    pace/                  Input pace: time to enter an answer per player/device/length → extra time per equation (docs/INPUT-PACE.md)
     ui/                    Screen wrapper (controller menu navigation), ErrorBoundary
   modules/
     math-monster/          Module 1. Pure engine, modes (Adventure, Practice classroom), spirits, companion skill model. See docs/modules/math-monster.md
@@ -48,6 +50,8 @@ docs/
   TELEMETRY.md             Data dictionary: every recorded event and field
   LOGGING.md               Logging conventions, levels, namespaces
   MENTAL-MATH.md           Mental-math strategy catalogue, reasoning model, slips
+  AUDIO.md                 Sound/music slots, moods, adding sounds
+  INPUT-PACE.md            Input-time measurement and the per-equation allowance algorithm
   DECISIONS.md             Why things are the way they are (ADR log)
   modules/math-monster.md  Module 1 internals (encounters, forms, spirits)
   lore/WORLD.md            Setting, spirits, writing rules (creature data itself lives in creatures.ts)
@@ -57,12 +61,13 @@ docs/
 ## Core concepts (one line each)
 
 - **Action**: a semantic input such as `math.digit(7)`, `nav(up)` or `pause`. Modules never read raw keys or buttons.
-- **ControlScheme**: maps keyboard keys and gamepad buttons to actions, per module. Touch UI dispatches actions directly.
+- **ControlScheme**: maps keyboard keys and gamepad buttons to actions, per module. Touch UI dispatches actions directly. Analogue input (e.g. Math Monster's radial dial) reads `input.stick()`; set `stickAsNav: false` when a module uses the stick itself.
 - **GameModule**: the contract a game implements (`core/modules/types.ts`): metadata, controls, presets, settings, an optional `importPack`, and a `Component`.
 - **Engine**: a module's pure game logic with no DOM or timers. The view calls `tick(dt)`; the engine emits events.
 - **TelemetrySession**: records one play session's events (player behaviour) to IndexedDB.
 - **Logger**: records app diagnostics (errors, lifecycle). It is *not* play data.
 - **Reasoning** (`core/mental-math`): a strategy (count on, make ten, tens and ones…) turns a problem into steps. A wrong answer comes from a marked *slip* in those steps, never a random number. Steps can carry *notes* (values written down).
+- **Input time vs think time**: `firstInputMs` = think time (equation shown → first input movement). `typingMs` = input time (first movement → answer). Games add `InputPace.allowance()` to each equation's travel time.
 - **Content pack**: zod-validated JSON content for a module, e.g. a worksheet. It is the target format for the MCP server.
 - **Progress**: long-lived per-player module state (e.g. befriended spirits), in the IndexedDB `progress` store via `getProgress`/`saveProgress`.
 - **Mode** (Math Monster): `adventure` (fight & befriend), `pack` (worksheet), `practice` (staged classroom: you and your companion each answer your own column; the companion is a seeded bot with a maths **mastery** of 0–5). All modes share `useMathSession`.
@@ -81,6 +86,8 @@ docs/
 9. **No secrets or play-data exports in git.** `.gitignore` covers `.env*` and `funl-export-*.json`.
 10. **Keep menu frames cheap.** Controller presses are polled once per frame, so a slow frame (heavy SVG filters or animations) can swallow a press. Use `CreatureArt lite` in menus and lists.
 11. **Line endings are LF** (`.gitattributes`). Scripted edits must not write CRLF (Python on Windows does this by default; use `newline='\n'`).
+12. **Menus must work with only a controller.** Every interactive element is `data-focusable`. No `window.confirm/prompt` (use `ConfirmButton`), and no text entry without `OnScreenKeyboard`.
+13. **Sound goes through `audio`.** Use `audio.sfx(slot)` / `audio.music(slot)`. Add new moments as slots with mood-tagged variants in `core/audio/library.ts`, and keep "wrong" sounds gentle.
 
 ## Common tasks
 

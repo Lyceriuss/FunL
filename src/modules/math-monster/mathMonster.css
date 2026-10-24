@@ -316,7 +316,7 @@
   align-items: center; justify-content: center; gap: 14px;
   background: rgb(5 3 15 / 0.75); backdrop-filter: blur(6px);
 }
-.mm-pause h2 { font-size: 56px; font-style: italic; letter-spacing: 0.2em; margin: 0 0 12px; text-shadow: 0 0 20px var(--cyan); }
+.mm-pause > h2 { font-size: 56px; font-style: italic; letter-spacing: 0.2em; margin: 0 0 12px; text-shadow: 0 0 20px var(--cyan); }
 
 /* ---------- Animations ---------- */
 @keyframes mm-spin { to { transform: rotate(360deg); } }
@@ -391,3 +391,53 @@
   .mm-befriend__card { flex-direction: column; text-align: center; }
   .mm-befriend__traits, .mm-befriend__actions { justify-content: center; }
 }
+
+/* ---------- Radial number dial (controller) ---------- */
+.mm-dock--dial { width: 230px; }
+.mm-dial { position: relative; width: 100%; aspect-ratio: 1; border-radius: 50%;
+  background: radial-gradient(circle, rgb(255 255 255 / 0.05) 0 45%, rgb(34 211 238 / 0.08) 46% 70%, rgb(255 255 255 / 0.04) 71%);
+  border: 1px solid var(--edge); }
+.mm-dial__needle {
+  position: absolute; left: 50%; top: 50%; width: 4px; height: 30%; margin-left: -2px;
+  transform-origin: 50% 0; background: linear-gradient(var(--cyan), transparent);
+  translate: 0 -100%; transform-origin: 50% 100%; border-radius: 2px; box-shadow: 0 0 10px var(--cyan);
+  transition: transform 0.08s ease-out;
+}
+.mm-dial__num {
+  position: absolute; width: 38px; height: 38px; margin: -19px 0 0 -19px; border-radius: 50%;
+  border: 1px solid var(--edge); background: rgb(255 255 255 / 0.06); color: #f8fafc;
+  font-family: var(--hud-font); font-size: 19px; font-weight: 700; cursor: pointer;
+  transition: transform 0.08s, background 0.08s;
+}
+.mm-dial__num.is-selected { background: linear-gradient(135deg, #0891b2, #22d3ee); color: var(--ink); transform: scale(1.22); box-shadow: 0 0 16px rgb(34 211 238 / 0.8); }
+.mm-dial__num.is-pressed { transform: scale(0.9); background: white; }
+.mm-dial__hub {
+  position: absolute; inset: 31%; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  font-size: 10px; color: #cbd5e1; letter-spacing: 0.04em; background: rgb(5 3 15 / 0.6); pointer-events: none;
+}
+.mm-btn { display: inline-grid; place-items: center; width: 15px; height: 15px; border-radius: 50%; font-size: 9px; color: #050314; margin-right: 3px; }
+.mm-btn--a { background: #4ade80; }
+.mm-btn--x { background: #60a5fa; }
+.mm-btn--y { background: #facc15; }
+@media (max-width: 640px) and (orientation: portrait) {
+  .mm-dock--dial { width: auto; }
+  .mm-dock--dial .mm-dial { width: min(200px, 52vw); margin-left: auto; }
+}
+@media (max-height: 500px) and (orientation: landscape) {
+  .mm-dock--dial { width: 170px; }
+  .mm-dial__num { width: 28px; height: 28px; margin: -14px 0 0 -14px; font-size: 14px; }
+}
+
+/* Knockback: pushed back by a correct answer elsewhere. */
+.mm-eq.is-recoil { filter: brightness(1.6); box-shadow: 0 0 26px white, inset 0 0 12px rgb(255 255 255 / 0.4); }
+.mm-eq.is-recoil::before {
+  content: '»'; position: absolute; right: -0.9em; top: 50%; transform: translateY(-50%);
+  color: white; font-size: 0.8em; opacity: 0.85; text-shadow: 0 0 8px var(--lane);
+}
+
+
+/* Pause → Sound */
+.mm-pause--sound { justify-content: flex-start; align-items: stretch; padding: 16px; gap: 10px; }
+.mm-pause__sound-head { display: flex; align-items: center; gap: 16px; }
+.mm-pause__sound-head h2 { font-size: 28px; margin: 0; }
+.mm-pause__sound-body { overflow-y: auto; flex: 1; padding: 4px 8px 24px; background: rgb(11 8 32 / 0.9); }

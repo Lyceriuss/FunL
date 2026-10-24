@@ -273,3 +273,7 @@
   .pr-think { bottom: 30%; left: auto; right: 88%; transform: none; width: 34vw; font-size: 12px; animation-name: pr-pop-side; }
   .pr-think::before, .pr-think::after { display: none; }
 }
+
+/* Knockback in the classroom: a chalky whoosh. */
+.pr-eq.is-recoil { color: #a5f3fc; text-shadow: 0 0 10px rgb(165 243 252 / 0.9); }
+

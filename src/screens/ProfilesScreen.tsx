@@ -1,15 +1,29 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { input } from '../core/input/InputManager';
+import { OnScreenKeyboard } from '../core/ui/OnScreenKeyboard';
 import { listProfiles, saveProfile } from '../core/telemetry/storage';
 import type { Profile } from '../core/telemetry/types';
 import { Screen } from '../core/ui/Screen';
 
 const AVATARS = ['🦊', '🐼', '🐸', '🦁', '🐙', '🦄', '🐯', '🐧', '🐲', '🐵'];
 
-export function ProfilesScreen({ onPick, onData }: { onPick: (p: Profile) => void; onData: () => void }) {
+export function ProfilesScreen({ onPick, onData, onSound }: { onPick: (p: Profile) => void; onData: () => void; onSound: () => void }) {
+  // With a controller, typing a name happens on an on-screen keyboard.
+  const usingPad = input.lastDevice === 'gamepad';
+  const [keys, setKeys] = useState(usingPad);
+  const formRef = useRef<HTMLFormElement>(null);
   const [profiles, setProfiles] = useState<Profile[] | null>(null);
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState('');
   const [avatar, setAvatar] = useState(AVATARS[0]);
+
+  // A controller showing up mid-form switches to the on-screen keyboard.
+  useEffect(() => input.onRaw((e) => e.device === 'gamepad' && setKeys(true)), []);
+
+  // When the form opens with a controller, put focus on the first letter.
+  useEffect(() => {
+    if (creating && keys) formRef.current?.querySelector<HTMLElement>('.osk__key')?.focus();
+  }, [creating, keys]);
 
   useEffect(() => {
     listProfiles().then((p) => {
@@ -30,9 +44,14 @@ export function ProfilesScreen({ onPick, onData }: { onPick: (p: Profile) => voi
     <Screen
       title="Who's playing?"
       actions={
-        <button type="button" className="btn btn--ghost" data-focusable onClick={onData}>
-          📊 Data
-        </button>
+        <>
+          <button type="button" className="btn btn--ghost" data-focusable onClick={onSound}>
+            🔊 Sound
+          </button>
+          <button type="button" className="btn btn--ghost" data-focusable onClick={onData}>
+            📊 Data
+          </button>
+        </>
       }
     >
       {!creating && (
@@ -52,6 +71,7 @@ export function ProfilesScreen({ onPick, onData }: { onPick: (p: Profile) => voi
 
       {creating && (
         <form
+          ref={formRef}
           className="panel form"
           onSubmit={(e) => {
             e.preventDefault();
@@ -59,16 +79,22 @@ export function ProfilesScreen({ onPick, onData }: { onPick: (p: Profile) => voi
           }}
         >
           <label className="form__label">
-            Name
+            <span className="row">
+              Name
+              <button type="button" className="btn btn--ghost osk-toggle" data-focusable onClick={() => setKeys((k) => !k)}>
+                ⌨ {keys ? 'Hide' : 'Show'} on-screen keyboard
+              </button>
+            </span>
             <input
               className="input"
               value={name}
               onChange={(e) => setName(e.target.value)}
               maxLength={20}
-              autoFocus
-              data-focusable
+              autoFocus={!keys}
+              data-focusable={!keys || undefined}
             />
           </label>
+          {keys && <OnScreenKeyboard value={name} onChange={(v) => setName(v.slice(0, 20))} />}
           <div className="avatar-row" role="radiogroup" aria-label="Pick an animal">
             {AVATARS.map((a) => (
               <button

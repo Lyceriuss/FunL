@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef, type RefObject } from 'react';
+import { audio } from '../audio';
 import { input } from './InputManager';
 import type { ActionEvent, ControlScheme, NavDirection } from './types';
 
@@ -39,11 +40,13 @@ export function useMenuNavigation(
     if (!root) return;
     const a = e.action;
     if (a.type === 'nav') {
-      moveFocus(root, (a as { dir: NavDirection }).dir);
+      if (moveFocus(root, (a as { dir: NavDirection }).dir)) audio.sfx('menuMove');
     } else if (a.type === 'confirm') {
       const el = document.activeElement as HTMLElement | null;
-      if (el && root.contains(el)) el.click();
-      else firstFocusable(root)?.focus();
+      if (el && root.contains(el)) {
+        audio.sfx('menuSelect');
+        el.click();
+      } else firstFocusable(root)?.focus();
     } else if (a.type === 'back') {
       opts.onBack?.();
     } else if (a.type === 'pause') {
@@ -56,15 +59,16 @@ function firstFocusable(root: HTMLElement): HTMLElement | null {
   return root.querySelector<HTMLElement>('[data-focusable]:not(:disabled)');
 }
 
-function moveFocus(root: HTMLElement, dir: NavDirection): void {
+/** Move focus spatially; returns true if it moved. */
+function moveFocus(root: HTMLElement, dir: NavDirection): boolean {
   const items = Array.from(root.querySelectorAll<HTMLElement>('[data-focusable]')).filter(
     (el) => !(el as HTMLButtonElement).disabled && el.offsetParent !== null,
   );
-  if (items.length === 0) return;
+  if (items.length === 0) return false;
   const current = document.activeElement as HTMLElement | null;
   if (!current || !items.includes(current)) {
     items[0].focus();
-    return;
+    return true;
   }
   const from = center(current);
   let best: HTMLElement | null = null;
@@ -83,7 +87,9 @@ function moveFocus(root: HTMLElement, dir: NavDirection): void {
       best = el;
     }
   }
-  best?.focus();
+  if (!best) return false;
+  best.focus();
+  return true;
 }
 
 function center(el: HTMLElement): { x: number; y: number } {

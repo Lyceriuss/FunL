@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto';
 import { openDB } from 'idb';
 import { describe, expect, it } from 'vitest';
-import { db, getProgress, listSessions, saveProgress } from './storage';
+import { db, deleteProgress, getProgress, listSessions, saveProgress } from './storage';
 
 describe('storage migrations', () => {
   it('upgrades a v1 database to the latest version without losing data', async () => {
@@ -31,5 +31,7 @@ describe('storage migrations', () => {
     await saveProgress('mod', 'p1', { stars: 3 });
     expect(await getProgress('mod', 'p1')).toEqual({ stars: 3 });
     expect(await getProgress('mod', 'p2')).toBeUndefined();
+    await deleteProgress('mod', 'p1');
+    expect(await getProgress('mod', 'p1')).toBeUndefined();
   });
 });

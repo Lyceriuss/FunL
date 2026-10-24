@@ -6,6 +6,8 @@ import { getModule } from '../core/modules/registry';
 import { deleteProfile, exportAll, listProfiles, listSessions } from '../core/telemetry/storage';
 import type { Profile, SessionRecord } from '../core/telemetry/types';
 import { Screen } from '../core/ui/Screen';
+import { ConfirmButton } from '../core/ui/ConfirmButton';
+import { PaceTable } from '../core/ui/PaceTable';
 
 const log = getLogger('data');
 
@@ -99,6 +101,17 @@ export function DataScreen({ onBack }: { onBack: () => void }) {
         </div>
       )}
 
+      {profiles.length > 0 && (
+        <section>
+          <h2 className="section-title">Input pace</h2>
+          <div className="pace-list">
+            {profiles.map((p) => (
+              <PaceTable key={p.id} profile={p} />
+            ))}
+          </div>
+        </section>
+      )}
+
       <section>
         <h2 className="section-title">Diagnostics</h2>
         <div className="row">
@@ -144,20 +157,17 @@ export function DataScreen({ onBack }: { onBack: () => void }) {
           <h2 className="section-title">Players</h2>
           <div className="chip-row">
             {profiles.map((p) => (
-              <button
+              <ConfirmButton
                 key={p.id}
-                type="button"
-                className="chip"
-                data-focusable
-                onClick={async () => {
-                  if (confirm(`Delete ${p.name} and all their data?`)) {
-                    await deleteProfile(p.id);
-                    await refresh();
-                  }
+                question={`Delete ${p.name} and all their data?`}
+                yes="Delete"
+                onConfirm={async () => {
+                  await deleteProfile(p.id);
+                  await refresh();
                 }}
               >
                 {p.avatar} {p.name} ✕
-              </button>
+              </ConfirmButton>
             ))}
           </div>
         </section>

@@ -21,6 +21,8 @@ flowchart TB
       Log[log<br/>LogHub + sinks]
       Mods[modules<br/>GameModule registry + settings]
       MM2[mental-math<br/>strategies · reasoning · slips]
+      Aud[audio<br/>sfx · music · Sound panel]
+      Pace[pace<br/>input time model · allowance]
       UI[ui<br/>Screen, ErrorBoundary]
       Store[(IndexedDB 'funl')]
     end
@@ -35,6 +37,9 @@ flowchart TB
   Router -- mounts --> MM
   Mods -- registry lists --> MM
   MM -- companion reasoning --> MM2
+  MM -- sfx / music --> Aud
+  MM -- input times / allowance --> Pace
+  Shell -. menu music .-> Aud
   MM -- actions --> Input
   MM -- events --> Tele
   Input -- raw input --> Tele
@@ -267,7 +272,7 @@ Per-device conveniences go in `localStorage`: `funl.lastProfile`, `funl.settings
 ## 7. Input system
 
 - **Keyboard:** `KeyboardEvent.key` → action via the active `ControlScheme`. Auto-repeat only applies to `nav`.
-- **Gamepad:** polled every frame. A button press edge → action. The left stick acts as a D-pad, with repeat after 380 ms and then every 130 ms. Assumes the standard mapping and logs a warning otherwise.
+- **Gamepad:** polled every frame. A button press edge → action. The left stick acts as a D-pad (when the scheme's `stickAsNav` is on), with repeat after 380 ms and then every 130 ms. Its raw position is also available as `input.stick()` (x, y, magnitude, angle) for analogue controls like the radial number dial. Assumes the standard mapping and logs a warning otherwise.
 - **Touch, mouse and pen:** on-screen controls call `input.dispatch()`. A global `pointerdown` listener records every tap and whether it hit an interactive element (`[data-hit]`, a button, …). Misses become `input.miss` telemetry events.
 - **Listener stack:** `onAction` delivers only to the most recent subscriber. Overlays like the pause menu capture input simply by mounting. Subscriptions, control schemes and initial menu focus are set in **layout effects**, before the first paint, so a press right after a screen appears isn't lost.
 - **Frame budget:** the Gamepad API only exposes the *current* button state, polled once per frame. A press shorter than a frame is invisible, so keep menu frames cheap. SVG blur filters and looping animations are the usual culprits; use `CreatureArt lite` for static portraits. The poll loop reschedules itself before handling input, so a handler error can't stop polling.

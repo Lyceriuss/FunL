@@ -10,6 +10,108 @@ Sections, used when relevant: ✨ New · 🎮 Gameplay · ⚖️ Balance · 🎨
 
 ---
 
+## v0.10.0 · "Your Pace" (2026-10-24)
+
+The game now learns how fast *you* can enter an answer and gives every equation enough time for it, so slow fingers (or a controller dial) never look like slow thinking.
+
+🎮 **Gameplay**
+- **Input-pace learning:** for each player, per device (controller, keyboard, touch, mouse, pen) and answer length (1, 2, 3+ digits), the game learns how long it takes to enter an answer, as a running median of recent answers, ignoring moments when the child looked away.
+- **Input time is measured from the first movement:** on a controller the clock starts when the stick starts moving (or any button), not at the first digit. On keyboard and touch it starts at the first key or tap.
+- **Extra time per equation (allowance):** each new equation gets extra travel time = (your expected input time − keyboard pace) × 1.25, up to 8 s. Typical keyboard players get about 0 extra; a child on the controller dial gets the time they need. New equations still arrive at the same rhythm.
+- New setting **Input time help: Auto / Off**.
+
+🎨 **Art & UI**
+- Results show **"Input time per answer (controller)"** next to the typical answer time.
+- Data screen: an **Input pace** map per player (device × 1/2/3 digits, measured or estimated, plus the extra time given).
+
+📊 **Data & telemetry**
+- `math.answer.correct` / `math.answer.wrong`: `typingMs` now means input time from the **first input movement** (stick, button, key or tap). New `digits` field.
+- New `math.input.start` event. `math.problem.spawn` adds `allowanceMs` (included in `travelMs`).
+- Session summary adds `inputPace` (`device`, `medianInputMs`, `medianMsPerDigit`, `answers`).
+
+🛠️ **Dev & tooling**
+- New core module `src/core/pace`: `InputPace` (`observe`, `expected`, `allowance`, `summary`), `loadPace`/`savePace`, `usePace` hook, plus 6 tests. Docs: `docs/INPUT-PACE.md`.
+- Engine: `markInputStart()`, `inputAllowance` option, plus 2 tests. `createEngine(…, extras)`.
+- `PaceTable` component (Data screen).
+
+---
+
+## v0.9.0 · "Heart & Sound" (2026-10-19)
+
+More hearts, a kinder boss, every menu works with a controller, and the game finally has sound.
+
+⚖️ **Balance**
+- **5 lives** instead of 3.
+- **Lives refill at the start of every new round**, so a hard round doesn't carry over into the next.
+- **Gentler boss rounds:** 1.3× HP (was 1.5×) and **no extra lane**. The boss keeps the pace and lanes of its stage.
+
+🎮 **Controllers in menus**
+- Every menu now works with only a controller, tested end to end with no mouse or keyboard: creating a player, choosing a module, settings, starting a game, pause, sound, results, data, deleting a player.
+- **On-screen keyboard** for typing a player's name. It appears automatically when a controller is used (or with "⌨ Show on-screen keyboard").
+- **No more browser pop-ups:** deleting a player or a worksheet asks "Sure?" inside the page (`ConfirmButton`), so a controller can answer it.
+- **Clear focus highlight** when a controller is in use (glowing outline, slightly raised cards).
+
+🔊 **Sound & music (new)**
+- **Synthesised sound library** (`src/core/audio`, no audio files): effects for correct, wrong, lose a life, round clear, purified, game over/try again, companion right/wrong, menu move and menu select. Each has 3–4 variants tagged by **mood** (happy, calm, gentle, encouraging, magical…) plus Silent. Kept gentle for children.
+- **Music for emotion:** 5 generative loops (Calm pads, Lo-fi study, Brave adventure, Tense pulse, Sunny walk) assigned to **Menus**, **Adventure**, **Boss** and **Classroom**. Boss rounds switch to tense music, and the music ducks while paused.
+- **Sound panel** from **Home/Profiles → 🔊 Sound** and **Pause → 🔊 Sound**: sound on/off, volume, music and effects levels, and a chooser for every slot. Picking a variant plays it so you can feel how it lands. Choices are saved per device.
+- Every sound was rendered offline and level-checked: all audible, none clipping, and quiet variants were evened out.
+
+📊 **Data & telemetry**
+- New engine event `math.lives.refill` (`lives`, `restored`).
+
+🛠️ **Dev & tooling**
+- Engine: `DEFAULT_LIVES = 5`, `refillLives` option (default on), boss HP factor 1.3, no boss lane.
+- `core/audio`: `AudioEngine` (`sfx`, `music`, `duck`, `unlock`, `playVariant`, `previewTrack`), `library.ts`, `synth.ts`. Tests run every recipe against a fake AudioContext. New `docs/AUDIO.md`.
+- `core/ui`: `SoundPanel`, `OnScreenKeyboard`, `ConfirmButton`. Menu navigation plays menu sounds.
+- `<html data-input="gamepad|keyboard|touch|mouse">` reflects the last input device, for styling.
+- Dev handle `window.__funlAudio`.
+
+---
+
+## v0.8.0 · "Claw Back" (2026-10-19)
+
+🎮 **Gameplay**
+- **Knockback:** when several equations are in flight, every correct answer pushes all the *other* equations back by 18% of the lane, so you can claw your way back from a tight spot.
+  - The push is a quick slide (about 0.25 s). While sliding back, an equation doesn't advance, and it never goes past the monster's edge.
+  - Works everywhere there are several lanes: Adventure, and both columns in the classroom (your companion's correct answers knock back its own equations).
+  - Knocked-back equations flash white with a » trail (chalky blue in the classroom).
+
+📊 **Data & telemetry**
+- `math.answer.correct` adds `pushedBack` (how many other equations were knocked back).
+
+🛠️ **Dev & tooling**
+- Engine option `knockback` (default `KNOCKBACK` = 0.18; 0 disables it). `ActiveProblem.recoil` holds the remaining slide. Two new engine tests.
+
+---
+
+## v0.7.0 · "Dial It In" (2026-10-19)
+
+A new heroine, a controller layout built for thumbs, and a way to start the adventure over.
+
+🎨 **Art & UI**
+- **The hero is now a girl:** an anime swordswoman with a long ponytail and red ribbon, eyelashes and a pleated skirt. Battle and classroom poses both updated (see `?gallery`).
+- **Empty practice hall:** without a companion, the classroom section shows an empty room (blank board, empty desks) and nothing to start.
+
+🎮 **Gameplay**
+- **Radial number dial for controllers.** With an Xbox-style controller the keypad grid is replaced by a dial with 0–9 around a circle (0 at the top, clockwise).
+  - **Left stick** points at a number (the **D-pad** turns the dial one step).
+  - **A** types the selected number, **X** deletes, **Y** sends. RT also sends and B also deletes. **Start** pauses.
+  - In-game the stick drives the dial instead of moving a cursor; menus still use the stick for navigation. Touch and mouse still get the keypad, and keyboard players just type.
+- **Reset progress:** the Math Monster screen has a "Reset progress" button with an in-page "Are you sure?" step that works with a controller. It forgets befriended spirits, the companion, its maths stars and classroom stages, so the adventure starts over and practice locks again. Play history (sessions) is kept.
+
+⚖️ **Balance**
+- **Companions think more slowly:** about 1.5× slower at ★0 and about 1.35× slower at ★5 (`thinkFraction = (0.35 + d) × (1.35 − 0.8 × skill)`). Long reasoning chains add less extra time (`0.8 + 0.05 × steps`, capped at 6 steps). ★5 still masters Normal speed.
+- Longer rests between the companion's answers: 1.8 s right, 3.2 s wrong, 2.2 s out of time.
+
+🛠️ **Dev & tooling**
+- `InputManager.stick()` exposes the analogue left stick (x, y, magnitude, angle). `ControlScheme.stickAsNav: false` for Math Monster.
+- `dialLayout.ts` (angle → digit, rotate) with tests. `RadialDial` component. `AnswerDock` picks keypad, dial or compact by device.
+- Core `deleteProgress(moduleId, profileId)` (logged), with a test.
+- README: **Current build** section (version, contents, tests, bundle size) and exact tool versions.
+
+---
+
 ## v0.6.0 · "Thinking Out Loud" (2026-10-19)
 
 Your companion now shows *how* it thinks. Its thought bubble works through real mental-math strategies, step by step, the way children are taught: counting on, making ten, splitting into tens and ones and more. When it gets one wrong, you can see exactly where its thinking slipped.

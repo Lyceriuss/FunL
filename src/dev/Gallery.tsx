@@ -1,3 +1,4 @@
+import { Hero } from '../modules/math-monster/Art';
 import { CREATURES } from '../modules/math-monster/creatures';
 import { CreatureArt } from '../modules/math-monster/Creature';
 
@@ -10,6 +11,10 @@ export function Gallery() {
   return (
     <div style={{ padding: 16, background: '#0b0820', minHeight: '100dvh', color: 'white', fontFamily: 'var(--font)' }}>
       <h1 style={{ margin: '0 0 12px' }}>Creature gallery</h1>
+      <div style={{ display: 'flex', gap: 24, alignItems: 'end', marginBottom: 16 }}>
+        <div style={{ width: 170 }}><Hero hurt={false} attacking={false} /><div>Hero · battle</div></div>
+        <div style={{ width: 170 }}><Hero hurt={false} attacking={false} pose="class" /><div>Hero · class</div></div>
+      </div>
       <div style={{ display: 'grid', gridTemplateColumns: `140px repeat(${forms.length}, 1fr)`, gap: 8, alignItems: 'center' }}>
         <span />
         {forms.map((f) => (

@@ -85,3 +85,34 @@ Format: **ID · date · title**, then Decision / Why / Trade-offs.
 - Design: correctness is still decided by the calibrated mastery model (so ★5 stays perfect), while *how* it is right or wrong comes from `think()`. Strategy choice is tiered by proficiency (counting → facts → fluent), so the companion visibly matures. Steps are structured (`calc` with terms and result), which makes them testable: unmarked calculations must be true.
 - Trade-offs: the companion now works on one equation at a time and rests to let the bubble be read, so it finishes fewer equations in quick 2-lane stages. Labels are English-only for now.
 
+**D17 · 2026-10-19 · Radial dial for controllers**
+- Decision: with a controller, numbers are entered on a radial dial (0–9 in a circle). The left stick points, the D-pad turns, A types, X deletes, Y sends. The stick is taken off menu-style navigation in-game.
+- Why: moving a cursor around a 3×4 keypad with a D-pad took many presses per digit. Pointing the stick at a number is one motion. User request: "a 360 select number with joystick".
+- Trade-offs: the input layer now exposes analogue state (`stick()`), not only discrete actions, so a module can read the stick directly. Stick movement itself isn't logged as telemetry (button presses are).
+
+**D18 · 2026-10-19 · Player-resettable progress**
+- Decision: "Reset progress" on the module screen deletes the module's progress record (befriended spirits, companion, mastery, classroom stages), with an in-page two-step confirm. Sessions and telemetry are kept.
+- Why: the user wants to replay Adventure from the start and see practice locked again. The play history stays useful for analysis.
+
+**D19 · 2026-10-19 · Knockback on correct answers**
+- Decision: a correct answer pushes all other in-flight equations back by 0.18 of the lane, as a short slide during which they don't advance.
+- Why: in multi-lane play, one slow moment could snowball into losing several lives. Rewarding each correct answer with breathing room lets children recover ("claw your way back") and makes speed feel powerful.
+- Trade-offs: multi-lane play is easier overall. The amount is one engine option (`knockback`) if it needs tuning, and wrong answers still push the front equation forward.
+
+**D20 · 2026-10-19 · More lives, refilled per round; gentler boss**
+- Decision: 5 lives, refilled at every new round. Boss rounds get 1.3× HP and no extra lane.
+- Why: feedback that lives didn't refresh between stages and the final round was too hard for a child. Each round should be a fresh, winnable challenge. The boss's drama comes from the shard, music and HP, not from extra lanes.
+
+**D21 · 2026-10-19 · Synthesised, mood-tagged sound library with a chooser**
+- Decision: all audio is generated with Web Audio (no files). Every game moment is a slot with several mood-tagged variants, music is a set of generative loops per place, and a Sound panel (menu + pause) lets adults audition and choose.
+- Why: the goal is to use sound to shape emotion, and the right choices need trying by feel. Synthesis keeps the build small and avoids licensing. Gentle defaults keep mistakes from feeling punishing.
+- Trade-offs: synthesised sounds are simpler than produced audio, but the slot/variant model means recorded sounds can be added as variants later. Browsers only start audio after a user gesture, and a controller press alone may not count, so the first sound may wait for a tap or key press.
+
+**D22 · 2026-10-19 · Controller-only menus as a rule**
+- Decision: every menu must be completable with only a controller. Hence an on-screen keyboard for names, in-page confirms instead of `window.confirm`, and a strong gamepad focus style. An automated controller-only playthrough covers the full flow.
+
+**D23 · 2026-10-24 · Separate input time from think time; adapt travel time to input pace**
+- Decision: measure input time from the first input movement (controller stick, any button, key or tap) to the answer. Learn a per-player model per device and answer length (median of recent answers, outliers rejected, device defaults first). Add `(expected − keyboard default) × 1.25` (0–8 s) to each equation's travel time.
+- Why: on some devices, especially the controller dial, entering the answer took longer than thinking of it, and equations were lost to slow *input*. The curve was tuned for keyboard, so keyboard players stay the same and others get exactly what they need.
+- Trade-offs: the allowance is based on the device in use when an equation appears (switching device mid-equation isn't re-timed). Only slower-than-keyboard input is compensated; a fast typist doesn't get less time. The Speed setting is the way to make it harder.
+

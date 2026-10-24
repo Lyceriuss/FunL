@@ -1,8 +1,8 @@
 import { useId } from 'react';
 
 /**
- * The player's hero, in a cel-shaded anime style. Creatures are drawn
- * procedurally in Creature.tsx.
+ * The player's hero: a cel-shaded anime swordswoman with a long ponytail and
+ * a red ribbon. Creatures are drawn procedurally in Creature.tsx.
  */
 
 export function Hero({
@@ -18,6 +18,9 @@ export function Hero({
   className?: string;
 }) {
   const id = useId();
+  const hair = '#2a1f5c';
+  const hairShade = '#1b1442';
+  const hairShine = '#7c6fe0';
   return (
     <svg
       className={['mm-hero', hurt ? 'mm-hero--hurt' : '', attacking ? 'mm-hero--attack' : '', className].join(' ')}
@@ -44,69 +47,91 @@ export function Hero({
 
       <ellipse className="mm-hero__aura" cx="82" cy="120" rx="80" ry="100" fill={`url(#${id}aura)`} />
 
-      {/* scarf tail, streaming behind */}
+      {/* long ponytail, streaming behind (animated like the scarf) */}
       <path
         className="mm-hero__scarf"
-        d="M70 84 C50 80 28 72 4 84 C22 88 32 92 44 92 C32 100 20 106 6 118 C32 112 52 102 72 94 Z"
+        d="M70 30 C46 30 30 46 22 70 C16 90 18 110 6 128 C24 122 34 108 38 92 C42 106 40 118 32 132 C50 118 54 96 56 78 C60 60 66 46 76 38 Z"
+        fill={hair}
+      />
+      <path d="M66 34 C48 40 36 58 30 80 C36 66 46 52 62 44 Z" fill={hairShine} opacity="0.6" />
+
+      {/* hair behind the shoulders */}
+      <path d="M66 44 Q60 80 64 104 L74 100 Q70 76 74 50 Z" fill={hairShade} />
+      <path d="M102 46 Q108 76 104 100 L96 98 Q100 74 96 52 Z" fill={hairShade} />
+
+      {/* scarf tail */}
+      <path
+        className="mm-hero__scarf"
+        d="M70 86 C54 84 38 80 20 92 C34 94 42 98 50 98 C40 106 30 112 20 122 C40 118 56 108 72 96 Z"
         fill="#e11d48"
       />
 
-      {/* legs + boots */}
-      <path d="M64 156 L56 204 L70 206 L78 160 Z" fill="#0f0d24" />
-      <path d="M86 158 L98 202 L112 200 L96 156 Z" fill="#1a1838" />
-      <path d="M52 202 L72 202 L74 212 L48 212 Z" fill="#0b0a1a" />
-      <path d="M96 198 L116 196 L120 206 L96 208 Z" fill="#0b0a1a" />
+      {/* legs + knee boots */}
+      <path d="M68 164 L62 200 L72 202 L78 166 Z" fill="#fde2cf" />
+      <path d="M88 166 L96 200 L106 198 L96 164 Z" fill="#f2c4a8" />
+      <path d="M60 184 L74 184 L74 204 L54 210 L56 202 Z" fill="#1a1838" />
+      <path d="M93 182 L107 180 L110 198 L116 204 L94 206 Z" fill="#13113a" />
 
-      {/* coat */}
-      <path d="M58 92 Q82 82 106 92 L114 166 Q98 178 82 170 Q66 178 50 168 Z" fill="#1e1b4b" />
-      <path d="M82 88 Q96 86 106 92 L114 166 Q98 178 84 170 Z" fill="#13113a" />
-      <path d="M82 92 L84 170" stroke="#22d3ee" strokeWidth="2" />
-      <path d="M58 92 L50 168" stroke="#22d3ee" strokeWidth="1.2" opacity="0.6" />
-      <rect x="56" y="128" width="54" height="6" rx="2" fill="#0b0a1a" />
-      <rect x="78" y="127" width="9" height="8" rx="1.5" fill="#fbbf24" />
+      {/* coat with a flared, pleated skirt */}
+      <path d="M62 92 Q83 84 104 92 L106 134 L60 134 Z" fill="#1e1b4b" />
+      <path d="M83 88 Q96 86 104 92 L106 134 L84 134 Z" fill="#13113a" />
+      <path d="M60 132 L106 132 L118 170 Q100 176 83 172 Q66 176 48 170 Z" fill="#1e1b4b" />
+      <path d="M83 132 L106 132 L118 170 Q100 176 84 172 Z" fill="#13113a" />
+      <path d="M68 134 L60 170 M78 134 L74 172 M90 134 L94 172 M100 134 L108 171" stroke="#2e2a6e" strokeWidth="1.5" />
+      <path d="M48 170 Q66 176 83 172 Q100 176 118 170" fill="none" stroke="#22d3ee" strokeWidth="2" />
+      <path d="M83 90 L83 132" stroke="#22d3ee" strokeWidth="2" />
+      <rect x="60" y="128" width="46" height="6" rx="2" fill="#0b0a1a" />
+      <rect x="79" y="127" width="9" height="8" rx="1.5" fill="#fbbf24" />
 
       {/* scarf wrap */}
-      <path d="M64 82 Q84 94 104 82 L102 96 Q84 104 66 96 Z" fill="#f43f5e" />
-      <path d="M84 92 Q94 92 103 86 L102 96 Q92 100 84 99 Z" fill="#be123c" />
+      <path d="M66 82 Q84 94 102 82 L100 96 Q84 104 68 96 Z" fill="#f43f5e" />
+      <path d="M84 92 Q93 92 101 86 L100 96 Q92 100 84 99 Z" fill="#be123c" />
 
       {pose === 'battle' && (
-        <>
+        <g className="mm-hero__arm">
           {/* sword arm */}
-          <g className="mm-hero__arm">
-            <path d="M98 96 Q120 102 128 116 L120 122 Q110 112 96 108 Z" fill="#1e1b4b" />
-            <circle cx="126" cy="119" r="5.5" fill="#fde2cf" />
-            <path
-              className="mm-hero__blade"
-              d="M127 114 L164 36 L169 40 L132 120 Z"
-              fill={`url(#${id}blade)`}
-              filter={`url(#${id}glow)`}
-            />
-            <rect x="118" y="113" width="18" height="4" rx="1.5" fill="#fbbf24" transform="rotate(-64 127 115)" />
-          </g>
-
-        </>
+          <path d="M98 96 Q118 102 126 116 L118 122 Q108 112 96 108 Z" fill="#1e1b4b" />
+          <circle cx="124" cy="119" r="5" fill="#fde2cf" />
+          <path className="mm-hero__blade" d="M125 114 L162 36 L167 40 L130 120 Z" fill={`url(#${id}blade)`} filter={`url(#${id}glow)`} />
+          <rect x="116" y="113" width="18" height="4" rx="1.5" fill="#fbbf24" transform="rotate(-64 125 115)" />
+        </g>
       )}
 
-      {/* head */}
-      <path d="M68 46 Q68 30 85 28 Q102 30 104 48 Q104 64 92 74 Q85 79 79 74 Q68 66 68 46 Z" fill="#fde2cf" />
-      <path d="M68 46 Q68 34 78 30 Q72 46 76 72 Q68 64 68 46 Z" fill="#f2c4a8" />
-      {/* eyes */}
-      <path d="M88 52 Q95 47 101 52 L100 61 Q94 63 89 59 Z" fill="white" />
-      <ellipse cx="96" cy="56" rx="3.2" ry="4.8" fill="#0891b2" />
-      <ellipse cx="96.5" cy="57" rx="1.6" ry="2.6" fill="#082f49" />
-      <circle cx="97.5" cy="54" r="1.2" fill="white" />
-      <path d="M74 53 Q78 50 82 53 L82 60 Q78 61 74 58 Z" fill="white" />
-      <ellipse cx="79" cy="56.5" rx="2.4" ry="4" fill="#0891b2" />
-      <path d="M86 46 L102 43" stroke="#1e1b4b" strokeWidth="2.6" strokeLinecap="round" />
-      <path d="M74 48.5 L81 48" stroke="#1e1b4b" strokeWidth="1.5" strokeLinecap="round" />
-      <path d="M88 68 L94 67" stroke="#9a4a3a" strokeWidth="1.6" strokeLinecap="round" />
+      {/* head: softer, rounder chin */}
+      <path d="M68 48 Q68 30 85 29 Q102 30 103 48 Q103 64 93 73 Q85 79 78 73 Q68 64 68 48 Z" fill="#fde2cf" />
+      <path d="M68 48 Q69 36 78 31 Q72 48 76 71 Q68 63 68 48 Z" fill="#f2c4a8" />
 
-      {/* spiky hair */}
+      {/* big eyes with lashes */}
+      <path d="M87 50 Q95 45 102 51 L101 61 Q94 64 88 59 Z" fill="white" />
+      <ellipse cx="95.5" cy="56" rx="3.6" ry="5.2" fill="#0891b2" />
+      <ellipse cx="96" cy="57" rx="1.8" ry="2.8" fill="#082f49" />
+      <circle cx="97.2" cy="53.8" r="1.4" fill="white" />
+      <path d="M86 50 Q95 43 103 50" fill="none" stroke="#1b1442" strokeWidth="2.6" strokeLinecap="round" />
+      <path d="M102 50 L105 47 M100 48 L102 44.5" stroke="#1b1442" strokeWidth="1.4" strokeLinecap="round" />
+      <path d="M73 52 Q78 48 83 52 L83 60 Q78 62 73 58 Z" fill="white" />
+      <ellipse cx="78.5" cy="56.5" rx="2.6" ry="4.4" fill="#0891b2" />
+      <circle cx="79.4" cy="54.5" r="1" fill="white" />
+      <path d="M72 51.5 Q78 46.5 84 51.5" fill="none" stroke="#1b1442" strokeWidth="2.2" strokeLinecap="round" />
+      {/* blush + small smile */}
+      <ellipse cx="97" cy="65" rx="4" ry="2" fill="#fb7185" opacity="0.45" />
+      <ellipse cx="76" cy="65" rx="3" ry="1.8" fill="#fb7185" opacity="0.35" />
+      <path d="M86 68 Q89 70.5 92 68" stroke="#b4534a" strokeWidth="1.5" fill="none" strokeLinecap="round" />
+
+      {/* fringe + side locks */}
       <path
-        d="M62 54 L54 40 L64 41 L56 24 L72 31 L72 12 L85 26 L94 8 L98 27 L114 18 L106 34 L120 36 L106 44 L104 40 Q94 32 84 36 Q74 36 70 46 L66 60 Z"
-        fill="#1e1b4b"
+        d="M64 52 Q62 30 80 24 Q98 20 106 34 Q110 42 106 54 Q102 44 96 40 Q90 46 82 44 Q78 50 72 48 Q70 54 68 60 Z"
+        fill={hair}
       />
-      <path d="M72 14 L82 28 L77 21 Z M94 10 L96 26 L93 18 Z M108 22 L102 32 L106 26 Z" fill="#6366f1" />
+      <path d="M66 46 Q62 62 68 80 L72 78 Q68 64 70 50 Z" fill={hair} />
+      <path d="M104 46 Q108 62 102 80 L98 77 Q102 64 100 50 Z" fill={hair} />
+      <path d="M78 26 Q90 22 100 30 Q90 27 80 30 Z" fill={hairShine} opacity="0.8" />
+
+      {/* ribbon on the ponytail */}
+      <g fill="#e11d48" stroke="#9f1239" strokeWidth="1">
+        <path d="M70 30 L58 22 L60 36 Z" />
+        <path d="M70 30 L74 16 L80 28 Z" />
+        <circle cx="70" cy="30" r="3.5" />
+      </g>
     </svg>
   );
 }

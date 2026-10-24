@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { audio } from '../../core/audio';
 import { getLogger } from '../../core/log/logger';
+import { usePace } from '../../core/pace/usePace';
 import type { GameProps, GameResult } from '../../core/modules/types';
 import { Hero } from './Art';
 import { BefriendOverlay } from './Befriend';
@@ -19,6 +21,8 @@ const log = getLogger('math-monster');
 const KO_BANNER_MS = 800;
 /** When to show the befriend dialog after a boss falls (within BOSS_DEFEAT_MS). */
 const BEFRIEND_AFTER_MS = 2000;
+/** Friendly device names for the results screen. */
+const DEVICE_NAME: Record<string, string> = { gamepad: 'controller', keyboard: 'keyboard', touch: 'touch', mouse: 'mouse', pen: 'pen' };
 const LANE_COLORS = ['#22d3ee', '#e879f9', '#fbbf24', '#a3e635'];
 
 interface Shown {
@@ -35,7 +39,11 @@ function laneTop(lane: number, lanes: number): number {
 
 /** Adventure mode: fight corrupted spirits over 5-round encounters, purify and befriend them. */
 export function AdventureGame({ profile, telemetry, options, settings, onFinish }: GameProps<MathOptions>) {
-  const [engine] = useState(() => createEngine(options, settings, sessionSeed(options)));
+  // Extra time per equation for how fast this player can *enter* an answer on their device.
+  const pace = usePace(profile.id, settings.inputHelp !== 'off');
+  const [engine] = useState(() =>
+    createEngine(options, settings, sessionSeed(options), { inputAllowance: (p) => pace.allowance(String(p.answer).length) }),
+  );
 
   // ----- spirits: who we meet, purification, companion -----
   const [spirits, setSpirits] = useState<SpiritProgress | null>(null);
@@ -79,9 +87,17 @@ export function AdventureGame({ profile, telemetry, options, settings, onFinish 
     };
   }, [profile.id]);
 
-  const ready = spirits !== null;
+  const ready = spirits !== null && pace.ready;
 
   const onEvent = (e: EngineEvent) => {
+    // Sound: effects for moments, music for the mood of the round.
+    if (e.type === 'answer.correct') audio.sfx('correct');
+    else if (e.type === 'answer.wrong') audio.sfx('wrong');
+    else if (e.type === 'life.lost') audio.sfx('lifeLost');
+    else if (e.type === 'monster.defeated') audio.sfx(e.boss ? 'purified' : 'roundClear');
+    else if (e.type === 'game.over') audio.sfx('gameOver');
+    if (e.type === 'level.start') audio.music(e.boss ? 'boss' : 'adventure');
+
     if (e.type === 'level.start') {
       // The engine schedules the next round at K.O. time; only count the
       // encounter once its first equation actually appears.
@@ -111,6 +127,7 @@ export function AdventureGame({ profile, telemetry, options, settings, onFinish 
     engine,
     telemetry,
     ready,
+    pace,
     onEvent,
     buildResult: (reason) => buildAdventureResult(engine.state, telemetry.events(), reason),
     onFinish,
@@ -245,7 +262,7 @@ export function AdventureGame({ profile, telemetry, options, settings, onFinish 
             return (
               <div
                 key={p.id}
-                className={['mm-eq', p.progress > 0.72 ? 'is-danger' : '', wrong ? 'is-wrong' : ''].join(' ')}
+                className={['mm-eq', p.progress > 0.72 ? 'is-danger' : '', wrong ? 'is-wrong' : '', p.recoil > 0 ? 'is-recoil' : ''].join(' ')}
                 style={
                   {
                     top: `${laneTop(p.lane, state.lanes)}%`,
@@ -317,9 +334,11 @@ export function AdventureGame({ profile, telemetry, options, settings, onFinish 
       <AnswerDock
         state={state}
         lastDevice={session.lastDevice}
-        cursor={session.cursor}
+        dial={session.dial}
+        dialFlash={session.dialFlash}
         pressed={session.pressed}
         onKeypadPress={session.onKeypadPress}
+        onDialPick={session.onDialPick}
       />
 
       {paused && !befriend && <PauseMenu onResume={() => engine.resume()} onQuit={() => finish('quit')} />}
@@ -345,6 +364,7 @@ function buildAdventureResult(
       { label: 'Accuracy', value: summary.accuracy === null ? '–' : `${Math.round(summary.accuracy * 100)}%` },
       { label: 'Typical answer time', value: secs(summary.medianResponseMs) },
       { label: 'Best combo', value: String(summary.bestStreak) },
+      { label: `Input time per answer${summary.inputPace.device ? ` (${DEVICE_NAME[summary.inputPace.device] ?? summary.inputPace.device})` : ''}`, value: secs(summary.inputPace.medianInputMs) },
     ],
   };
 }

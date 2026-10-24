@@ -1,6 +1,7 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
+import { audio } from './core/audio';
 import { input } from './core/input/InputManager';
 import { configureLogLevel, createIdbLogSink, getLogger, installGlobalErrorHandlers, logs, pruneLogs } from './core/log';
 import { APP_VERSION } from './core/telemetry/TelemetrySession';
@@ -24,8 +25,14 @@ pruneLogs()
   .catch((err: unknown) => log.warn('log pruning failed', err));
 
 input.attach();
+// Audio may only start after a user gesture; any input counts. The current
+// device is also exposed for styling (e.g. stronger focus rings for controllers).
+input.onRaw((e) => {
+  audio.unlock();
+  document.documentElement.dataset.input = e.device;
+});
 // Dev-only handles for debugging and browser tests.
-if (import.meta.env.DEV) Object.assign(window as unknown as Record<string, unknown>, { __funlInput: input });
+if (import.meta.env.DEV) Object.assign(window as unknown as Record<string, unknown>, { __funlInput: input, __funlAudio: audio });
 
 const root = createRoot(document.getElementById('root')!);
 

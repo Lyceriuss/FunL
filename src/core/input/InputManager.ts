@@ -48,6 +48,18 @@ export class InputManager {
   private attached = false;
   lastDevice: InputDevice = 'keyboard';
   gamepadId: string | null = null;
+  private stickState = { x: 0, y: 0 };
+
+  /**
+   * Current left-stick position (x right, y down, each −1…1), for analogue
+   * controls such as the radial number dial. Updated every frame.
+   */
+  stick(): { x: number; y: number; magnitude: number; angle: number } {
+    const { x, y } = this.stickState;
+    // angle: 0 = up, increasing clockwise, in degrees 0–360
+    const angle = (Math.atan2(x, -y) * 180) / Math.PI;
+    return { x, y, magnitude: Math.hypot(x, y), angle: (angle + 360) % 360 };
+  }
 
   attach(win: Window = window): void {
     if (this.attached) return;
@@ -164,8 +176,12 @@ export class InputManager {
   private pollGamepads(): void {
     const pads = typeof navigator !== 'undefined' && navigator.getGamepads ? navigator.getGamepads() : [];
     const pad = Array.from(pads).find((p): p is Gamepad => !!p && p.connected);
-    if (!pad) return;
+    if (!pad) {
+      this.stickState = { x: 0, y: 0 };
+      return;
+    }
     const now = performance.now();
+    this.stickState = { x: pad.axes[0] ?? 0, y: pad.axes[1] ?? 0 };
 
     let heldNav: { dir: NavDirection; source: string } | null = null;
 

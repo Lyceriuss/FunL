@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { useControlScheme, useMenuNavigation } from '../../core/input/hooks';
 import { baseScheme } from '../../core/input/types';
+import { audio } from '../../core/audio';
 import { getLogger } from '../../core/log/logger';
+import { usePace, type PaceHandle } from '../../core/pace/usePace';
 import type { GameProps, GameResult, Settings } from '../../core/modules/types';
 import type { TelemetrySession } from '../../core/telemetry/TelemetrySession';
 import type { TelemetryEvent } from '../../core/telemetry/types';
@@ -82,6 +84,7 @@ export function PracticeGame({ profile, telemetry, options, settings, onFinish }
   const opts = options as PracticeOptions;
   const pal = getCreature(opts.companionId) ?? CREATURES[0];
   const [baseSeed] = useState(() => sessionSeed(options));
+  const pace = usePace(profile.id, settings.inputHelp !== 'off');
 
   const [progress, setProgress] = useState<SpiritProgress | null>(null);
   const progressRef = useRef<SpiritProgress | null>(null);
@@ -150,7 +153,7 @@ export function PracticeGame({ profile, telemetry, options, settings, onFinish }
     setRun((r) => r + 1);
   };
 
-  if (!progress) return <div className="pr-root" />;
+  if (!progress || !pace.ready) return <div className="pr-root" />;
 
   return (
     <>
@@ -164,6 +167,7 @@ export function PracticeGame({ profile, telemetry, options, settings, onFinish }
         settings={settings}
         options={opts}
         frozen={!!ended}
+        pace={pace}
         onStageEnd={onStageEnd}
         onLeave={leave}
       />
@@ -201,7 +205,7 @@ interface PetJob {
 }
 
 /** Pause after answering before starting the next one (time to read the bubble). */
-const PET_REST_MS: Record<BubbleKind, number> = { right: 1300, wrong: 2600, unsure: 1700 };
+const PET_REST_MS: Record<BubbleKind, number> = { right: 1800, wrong: 3200, unsure: 2200 };
 /** How long a finished thought stays up if nothing new comes along. */
 const PET_BUBBLE_HOLD_MS = 3200;
 
@@ -214,9 +218,11 @@ function ClassroomStage({
   settings,
   options,
   frozen,
+  pace,
   onStageEnd,
   onLeave,
 }: {
+  pace: PaceHandle;
   stage: number;
   pal: Creature;
   mastery: number;
@@ -231,7 +237,10 @@ function ClassroomStage({
 }) {
   const cfg = stageConfig(stage);
   const stageOptions: PracticeOptions = { ...options, stage };
-  const [engine] = useState(() => createEngine(stageOptions, settings, seed));
+  // The player's column gets extra time for their input pace; the companion doesn't type.
+  const [engine] = useState(() =>
+    createEngine(stageOptions, settings, seed, { inputAllowance: (p) => pace.allowance(String(p.answer).length) }),
+  );
   const [petEngine] = useState(() => createEngine(stageOptions, settings, seed ^ 0x2545f491));
   const petRng = useRef(createRng(seed ^ 0x5eed));
   /** The companion's yardstick: this topic at normal speed, Auto lanes. */
@@ -290,6 +299,7 @@ function ClassroomStage({
   };
 
   const finishJob = (j: PetJob, outcome: BubbleKind) => {
+    audio.sfx(outcome === 'right' ? 'companionRight' : 'companionWrong');
     const pt = petEngine.state.time;
     j.outcome = outcome;
     j.endedAt = pt;
@@ -320,11 +330,20 @@ function ClassroomStage({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [petEngine]);
 
+  useEffect(() => {
+    audio.music('classroom');
+  }, []);
+
   const onEvent = (e: EngineEvent) => {
     const t = engine.state.time;
-    if (e.type === 'answer.correct') setYou({ text: String(e.answer), kind: 'right', at: t });
-    else if (e.type === 'answer.wrong') setYou({ text: String(e.given), kind: 'wrong', at: t });
-    else if (e.type === 'problem.timeout') {
+    if (e.type === 'answer.correct') {
+      audio.sfx('correct');
+      setYou({ text: String(e.answer), kind: 'right', at: t });
+    } else if (e.type === 'answer.wrong') {
+      audio.sfx('wrong');
+      setYou({ text: String(e.given), kind: 'wrong', at: t });
+    } else if (e.type === 'problem.timeout') {
+      audio.sfx('wrong');
       setYou({ text: '?', kind: 'unsure', at: t });
       const active = engine.state.active.find((p) => p.id === e.id);
       const text = active?.problem.text ?? e.key;
@@ -399,6 +418,7 @@ function ClassroomStage({
     engine,
     telemetry,
     ready: !frozen,
+    pace,
     onEvent,
     onFrame,
     autoFinish: false,
@@ -500,9 +520,11 @@ function ClassroomStage({
       <AnswerDock
         state={state}
         lastDevice={session.lastDevice}
-        cursor={session.cursor}
+        dial={session.dial}
+        dialFlash={session.dialFlash}
         pressed={session.pressed}
         onKeypadPress={session.onKeypadPress}
+        onDialPick={session.onDialPick}
       />
 
       {paused && !frozen && (
@@ -618,7 +640,7 @@ function Column({
           return (
             <div
               key={p.id}
-              className={['pr-eq', p.progress > 0.75 ? 'is-late' : '', wrong ? 'is-wrong' : '', p.wrongAnswers.length && pet ? 'is-crossed' : '', p.id === focusId ? 'is-focus' : ''].join(' ')}
+              className={['pr-eq', p.progress > 0.75 ? 'is-late' : '', wrong ? 'is-wrong' : '', p.wrongAnswers.length && pet ? 'is-crossed' : '', p.id === focusId ? 'is-focus' : '', p.recoil > 0 ? 'is-recoil' : ''].join(' ')}
               style={
                 {
                   top: `${laneTop(p.lane, state.lanes)}%`,
@@ -715,6 +737,9 @@ function StageEnd({
   useControlScheme(baseScheme);
   useMenuNavigation(ref);
   const [countdown, setCountdown] = useState<number | null>(r.passed ? AUTO_NEXT_S : null);
+  useEffect(() => {
+    audio.sfx(r.passed ? 'roundClear' : 'gameOver');
+  }, [r.passed]);
 
   useEffect(() => {
     ref.current?.querySelector<HTMLElement>('[data-focusable]')?.focus();

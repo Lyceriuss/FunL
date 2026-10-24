@@ -28,6 +28,8 @@ export interface EngineConfig {
   lives?: number;
   /** Practice: misses never cost lives and the game never ends in game over. */
   unlimitedLives?: boolean;
+  /** Refill lives to full at the start of every new round (default true). */
+  refillLives?: boolean;
   /** Speed-up after each correct answer within a level (0.95 = 5% faster). */
   speedUp?: number;
   /** Global speed setting: 2 = equations fly twice as fast. */
@@ -36,6 +38,17 @@ export interface EngineConfig {
   lanes?: number | 'auto';
   /** How far (0..1) a wrong answer pushes the front equation toward the player. */
   wrongPenalty?: number;
+  /**
+   * Knockback: a correct answer pushes every *other* equation in flight back
+   * by this much (0..1 of the lane), so a player can claw their way back in
+   * multi-lane play. 0 disables it. Default 0.18.
+   */
+  knockback?: number;
+  /**
+   * Extra travel time (ms) for an equation, so the player has time to *enter*
+   * its answer on their device (see core/pace). Asked once per spawn.
+   */
+  inputAllowance?: (problem: MathProblem) => number;
   maxInputLength?: number;
   /** Rounds per creature encounter; the last one is the boss round. Default 5. */
   roundsPerEncounter?: number;
@@ -50,6 +63,8 @@ export interface ActiveProblem {
   /** 0 = at the monster, 1 = hit the player. */
   progress: number;
   wrongAnswers: number[];
+  /** Knockback still to apply (progress units); while > 0 the equation slides back instead of advancing. */
+  recoil: number;
 }
 
 export type Outcome = 'correct' | 'wrong' | 'timeout' | 'defeated';
@@ -128,9 +143,12 @@ export type EngineEvent =
       answer: number;
       level: number;
       travelMs: number;
+      /** Part of travelMs added for entering the answer on the player's device. */
+      allowanceMs: number;
       lane: number;
       concurrent: number;
     }
+  | { type: 'input.start'; at: number }
   | { type: 'input.digit'; digit: number; value: string }
   | { type: 'input.backspace'; value: string }
   | { type: 'input.rejected'; reason: 'too-long' | 'empty-submit' | 'no-problem' }
@@ -141,8 +159,13 @@ export type EngineEvent =
       answer: number;
       responseMs: number;
       firstInputMs: number | null;
-      /** Time spent typing this answer (first digit → submit). */
+      /**
+       * Input time for this answer: from the first input movement (stick
+       * moved, button, key or tap; see markInputStart) to submit.
+       */
       typingMs: number;
+      /** Digits in the answer, for input-pace analysis. */
+      digits: number;
       keystrokes: number;
       backspaces: number;
       wrongAnswers: number[];
@@ -153,6 +176,8 @@ export type EngineEvent =
       concurrent: number;
       /** Whether the player answered the most dangerous equation. */
       frontmost: boolean;
+      /** How many other equations were knocked back by this answer. */
+      pushedBack: number;
     }
   | {
       type: 'answer.wrong';
@@ -164,6 +189,9 @@ export type EngineEvent =
       answer: number;
       activeKeys: string[];
       responseMs: number;
+      /** Input time for this attempt (see answer.correct). */
+      typingMs: number;
+      digits: number;
       keystrokes: number;
       backspaces: number;
       progress: number;
@@ -179,6 +207,7 @@ export type EngineEvent =
       concurrent: number;
     }
   | { type: 'life.lost'; lives: number }
+  | { type: 'lives.refill'; lives: number; restored: number }
   | { type: 'monster.defeated'; level: number; encounter: number; round: number; boss: boolean }
   | { type: 'game.pause'; reason: PauseReason }
   | { type: 'game.resume' }
@@ -193,12 +222,18 @@ const DEFEAT_MS = 1800;
 /** Longer pause after a boss so the purification can play out. */
 export const BOSS_DEFEAT_MS = 3200;
 /** Boss rounds need this many times the hits. */
-const BOSS_HP_FACTOR = 1.5;
+const BOSS_HP_FACTOR = 1.3;
+/** Default lives (refilled every round). */
+export const DEFAULT_LIVES = 5;
 const FIRST_SPAWN_GAP_MS = 400;
 const MIN_TRAVEL_MS = 1200;
 /** Extra travel time per extra lane, since there is more to read. */
 const LANE_TIME_BONUS = 0.35;
 const MAX_EFFECTS = 12;
+/** Default knockback per correct answer (share of the lane). */
+export const KNOCKBACK = 0.18;
+/** How long a knockback slide takes (ms). */
+const RECOIL_MS = 250;
 
 export class MathMonsterEngine {
   state: EngineState;
@@ -209,8 +244,11 @@ export class MathMonsterEngine {
   private speedMultiplier: number;
   private lanesSetting: number | 'auto';
   private wrongPenalty: number;
+  private knockback: number;
+  private inputAllowance: ((problem: MathProblem) => number) | null;
   private maxInput: number;
   private unlimitedLives: boolean;
+  private refillLives: boolean;
   private roundsPerEncounter: number;
   private startLevelNum: number;
   private betweenUntil = 0;
@@ -233,14 +271,17 @@ export class MathMonsterEngine {
     this.speedMultiplier = cfg.speedMultiplier ?? 1;
     this.lanesSetting = cfg.lanes ?? 'auto';
     this.wrongPenalty = cfg.wrongPenalty ?? 0.12;
+    this.knockback = cfg.knockback ?? KNOCKBACK;
+    this.inputAllowance = cfg.inputAllowance ?? null;
     this.maxInput = cfg.maxInputLength ?? 4;
     this.unlimitedLives = cfg.unlimitedLives ?? false;
+    this.refillLives = cfg.refillLives ?? true;
     this.roundsPerEncounter = Math.max(1, cfg.roundsPerEncounter ?? 5);
     const level = cfg.startLevel ?? 1;
     this.startLevelNum = level;
     const pos = this.positionOf(level);
     const levelConfig = this.configFor(level, pos.boss);
-    const lives = cfg.lives ?? 3;
+    const lives = cfg.lives ?? DEFAULT_LIVES;
     this.state = {
       phase: 'between',
       time: 0,
@@ -290,7 +331,16 @@ export class MathMonsterEngine {
       this.nextSpawnAt = s.time;
     }
 
-    for (const p of s.active) p.progress = Math.min(1, p.progress + dt / p.travelMs);
+    for (const p of s.active) {
+      if (p.recoil > 0) {
+        // Sliding back after a knockback (no forward travel meanwhile).
+        const back = Math.min(p.recoil, (this.knockback * dt) / RECOIL_MS);
+        p.progress = Math.max(0, p.progress - back);
+        p.recoil = p.progress === 0 ? 0 : p.recoil - back;
+      } else {
+        p.progress = Math.min(1, p.progress + dt / p.travelMs);
+      }
+    }
     for (const p of s.active.filter((x) => x.progress >= 1)) {
       this.timeout(p);
       // timeout() may end the game.
@@ -303,6 +353,17 @@ export class MathMonsterEngine {
       s.phase = 'complete';
       this.emit({ type: 'game.complete', score: s.score, level: s.level });
     }
+  }
+
+  /**
+   * The player started entering an answer (e.g. moved the controller stick)
+   * before typing a digit. Input time is measured from here.
+   */
+  markInputStart(): void {
+    const s = this.state;
+    if (s.phase !== 'playing' || s.active.length === 0 || this.inputStartedAt !== null) return;
+    this.inputStartedAt = s.time;
+    this.emit({ type: 'input.start', at: round1(s.time) });
   }
 
   digit(d: number): void {
@@ -393,6 +454,8 @@ export class MathMonsterEngine {
         answer: front.problem.answer,
         activeKeys: byDanger.map((p) => p.problem.key),
         responseMs: round1(s.time - front.spawnedAt),
+        typingMs: round1(s.time - attempt.startedAt),
+        digits: String(given).length,
         keystrokes: attempt.keystrokes,
         backspaces: attempt.backspaces,
         progress: round(front.progress),
@@ -420,6 +483,7 @@ export class MathMonsterEngine {
       responseMs,
       firstInputMs,
       typingMs: round1(s.time - attempt.startedAt),
+      digits: String(target.problem.answer).length,
       keystrokes: attempt.keystrokes,
       backspaces: attempt.backspaces,
       wrongAnswers: target.wrongAnswers,
@@ -429,8 +493,11 @@ export class MathMonsterEngine {
       lane: target.lane,
       concurrent,
       frontmost: target === byDanger[0],
+      pushedBack: this.knockback > 0 ? s.active.length - 1 : 0,
     });
     s.active = s.active.filter((p) => p !== target);
+    // Knockback: the others get pushed back so the player can claw back time.
+    if (this.knockback > 0) for (const p of s.active) p.recoil += this.knockback;
     s.monsterHp--;
     this.hitsThisLevel++;
     const fast = target.progress < 0.35;
@@ -489,19 +556,21 @@ export class MathMonsterEngine {
     return { encounter: Math.floor(i / this.roundsPerEncounter), round, boss: round === this.roundsPerEncounter };
   }
 
-  /** Level config with boss modifiers: more HP and, on auto lanes, one more lane. */
+  /** Level config with boss modifiers: more HP (same lanes and pace, so it stays fair for children). */
   private configFor(level: number, boss: boolean): LevelConfig {
     const base = levelAt(this.levels, level);
     if (!boss) return base;
-    return {
-      ...base,
-      hitsToDefeat: Math.ceil(base.hitsToDefeat * BOSS_HP_FACTOR),
-      lanes: Math.min(4, (base.lanes ?? 1) + 1),
-    };
+    return { ...base, hitsToDefeat: Math.ceil(base.hitsToDefeat * BOSS_HP_FACTOR) };
   }
 
   private startLevel(delay: number): void {
     const s = this.state;
+    // A fresh round, a fresh start: refill lives.
+    if (this.refillLives && this.started && s.lives < s.maxLives && !this.unlimitedLives) {
+      const restored = s.maxLives - s.lives;
+      s.lives = s.maxLives;
+      this.emit({ type: 'lives.refill', lives: s.lives, restored });
+    }
     this.emit({
       type: 'level.start',
       level: s.level,
@@ -536,11 +605,13 @@ export class MathMonsterEngine {
     }
     this.lastLane = lane;
 
-    const travelMs = this.currentTravelMs();
+    const baseMs = this.currentTravelMs();
+    const allowanceMs = Math.max(0, Math.round(this.inputAllowance?.(problem) ?? 0));
+    const travelMs = baseMs + allowanceMs;
     const id = this.nextId++;
-    s.active.push({ id, lane, problem, spawnedAt: s.time, travelMs, progress: 0, wrongAnswers: [] });
-    // Stagger spawns so lanes don't all arrive together.
-    this.nextSpawnAt = s.time + Math.max(600, (travelMs / s.lanes) * 0.55);
+    s.active.push({ id, lane, problem, spawnedAt: s.time, travelMs, progress: 0, wrongAnswers: [], recoil: 0 });
+    // Stagger spawns so lanes don't all arrive together (based on the base pace).
+    this.nextSpawnAt = s.time + Math.max(600, (baseMs / s.lanes) * 0.55);
     this.emit({
       type: 'problem.spawn',
       id,
@@ -549,6 +620,7 @@ export class MathMonsterEngine {
       answer: problem.answer,
       level: s.level,
       travelMs,
+      allowanceMs,
       lane,
       concurrent: s.active.length,
     });

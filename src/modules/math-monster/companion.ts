@@ -61,9 +61,13 @@ export function skillFor(mastery: number): number {
   return Math.max(0, Math.min(1, mastery / MASTERY_MAX));
 }
 
-/** Share of the normal-speed travel time the companion needs to think. */
+/**
+ * Share of the normal-speed travel time the companion needs to think.
+ * Slow and careful at first (about 1.5x the v0.6 pace at 0 stars); at full
+ * mastery it still finishes well before the equation lands at normal speed.
+ */
 export function thinkFraction(d: number, skill: number): number {
-  return (0.3 + 0.95 * d) * (1 - 0.55 * skill);
+  return (0.35 + d) * (1.35 - 0.8 * skill);
 }
 
 /** Chance of getting it right once finished. */
@@ -92,7 +96,7 @@ export function attempt(
   const reasoning = think({ op: p.op, terms: p.terms }, { proficiency: skill, wrong: !right, rng: opts.rng });
 
   // Longer chains of reasoning take a bit longer to think through.
-  const stepFactor = 0.75 + 0.08 * reasoning.steps.length;
+  const stepFactor = 0.8 + 0.05 * Math.min(reasoning.steps.length, 6);
   const thinkMs = Math.round(thinkFraction(d, skill) * opts.normalTravelMs * jitter * stepFactor);
   const finished = thinkMs < opts.travelMs;
   return { reasoning, answer: reasoning.answer, correct: finished && reasoning.correct, finished, thinkMs };

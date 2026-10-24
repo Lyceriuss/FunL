@@ -10,12 +10,15 @@ import { HomeScreen } from './screens/HomeScreen';
 import { ModuleScreen } from './screens/ModuleScreen';
 import { ProfilesScreen } from './screens/ProfilesScreen';
 import { ResultsScreen } from './screens/ResultsScreen';
+import { SoundScreen } from './screens/SoundScreen';
+import { audio } from './core/audio';
 import { ErrorBoundary } from './core/ui/ErrorBoundary';
 
 type Route =
   | { name: 'loading' }
   | { name: 'profiles' }
   | { name: 'data'; from: Route }
+  | { name: 'sound'; from: Route }
   | { name: 'home' }
   | { name: 'module'; moduleId: string }
   | { name: 'game'; moduleId: string; options: unknown; settings: Settings; session: TelemetrySession }
@@ -43,6 +46,8 @@ function Shell() {
     const sessionId = route.name === 'game' ? route.session.id : undefined;
     const moduleId = 'moduleId' in route ? route.moduleId : undefined;
     logs.setContext({ route: route.name, moduleId, sessionId });
+    // Menus share one mood; game screens choose their own music.
+    if (route.name !== 'game') audio.music('menu');
     log.debug('navigate', { to: route.name, moduleId });
   }, [route]);
 
@@ -93,15 +98,24 @@ function Shell() {
     case 'loading':
       return null;
     case 'profiles':
-      return <ProfilesScreen onPick={pickProfile} onData={() => setRoute({ name: 'data', from: route })} />;
+      return (
+        <ProfilesScreen
+          onPick={pickProfile}
+          onData={() => setRoute({ name: 'data', from: route })}
+          onSound={() => setRoute({ name: 'sound', from: route })}
+        />
+      );
     case 'data':
       return <DataScreen onBack={() => setRoute(route.from)} />;
+    case 'sound':
+      return <SoundScreen onBack={() => setRoute(route.from)} />;
     case 'home':
       return profile ? (
         <HomeScreen
           profile={profile}
           onModule={(moduleId) => setRoute({ name: 'module', moduleId })}
           onSwitchProfile={() => setRoute({ name: 'profiles' })}
+          onSound={() => setRoute({ name: 'sound', from: route })}
         />
       ) : null;
     case 'module': {

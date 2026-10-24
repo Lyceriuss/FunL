@@ -22,8 +22,9 @@ Mental arithmetic as an anime battle. Corrupted **spirits** hurl equations at th
 | `PracticeGame.tsx` + `practice.css` | Practice: stage flow (`PracticeGame`), one lesson with two columns/engines (`ClassroomStage`), result panel (`StageEnd`) |
 | `classroom.ts` | Classroom stage ladder: topic/pace/lanes/speed per stage, pass threshold |
 | `companion.ts` | **Companion skill model** (pure): difficulty, think time, accuracy; reasoning (right or with a slip) comes from `core/mental-math` |
-| `MathHub.tsx` | Module `Hub`: practice classroom section + Spirit Journal; owns spirit progress loading |
-| `Dock.tsx`, `PauseMenu.tsx` | Shared answer box/keypad dock and pause menu |
+| `MathHub.tsx` | Module `Hub`: practice classroom section (empty hall without a companion) + Spirit Journal + Reset progress; owns spirit progress loading |
+| `Dock.tsx`, `PauseMenu.tsx` | Shared answer dock (keypad for touch, radial dial for controllers, compact for keyboard) and pause menu |
+| `Dial.tsx`, `dialLayout.ts` | Controller radial number dial and its geometry (angle → digit) |
 | `creatures.ts` | **Spirit data**: names, 5 forms (title + banner line), colours, personality, story. The lore source of truth |
 | `spirits.ts` | Per-player spirit progress (met / best form / purified / companion): pure functions + load/save via core `progress` store |
 | `Creature.tsx` | Procedural creature art: one `form` (0–4) drives every feature from menacing to cute; `shard` = boss crown |
@@ -81,7 +82,7 @@ stateDiagram-v2
   R2: Round 2 · form 1 Cracking
   R3: Round 3 · form 2 Wavering
   R4: Round 4 · form 3 Softened
-  R5: Round 5 · BOSS · form 4 + shard (1.5× HP, +1 lane)
+  R5: Round 5 · BOSS · form 4 + shard (1.3× HP)
   R1 --> R2: K.O. → transform
   R2 --> R3: K.O. → transform
   R3 --> R4: K.O. → transform
@@ -115,7 +116,7 @@ stateDiagram-v2
 ```
 
 - **Two columns, two engines:** `ClassroomStage` runs the player's engine (driven by input via `useMathSession`) and a separate **companion engine** with its own equations (same stage, different seed). The companion engine is ticked in the player's frame loop (`onFrame(dt)`), so both pause together.
-- **Companion bot:** works on **one equation at a time**: the most urgent untried one in its column (marked 💭). It plans an attempt with `companion.attempt` (seeded), which includes its **reasoning** from `core/mental-math` (see [MENTAL-MATH.md](../MENTAL-MATH.md)). The thought bubble (`ThinkBubble`) shows the problem, strategy label, steps revealed over the think time, and then the answer. When its time is up it answers with `engine.answerFor(id, answer)`: right → ✨; wrong → 😢, the slip step highlighted with its "Oops: …" label, and the equation crossed out and drifting on. If the equation lands first → 😅. After answering it rests (1.3 s right / 2.6 s wrong / 1.7 s unsure) so the bubble can be read. Equations it never reached count as out of time. Steps with `note` go on the desk notepad. It never waits for the player.
+- **Companion bot:** works on **one equation at a time**: the most urgent untried one in its column (marked 💭). It plans an attempt with `companion.attempt` (seeded), which includes its **reasoning** from `core/mental-math` (see [MENTAL-MATH.md](../MENTAL-MATH.md)). The thought bubble (`ThinkBubble`) shows the problem, strategy label, steps revealed over the think time, and then the answer. When its time is up it answers with `engine.answerFor(id, answer)`: right → ✨; wrong → 😢, the slip step highlighted with its "Oops: …" label, and the equation crossed out and drifting on. If the equation lands first → 😅. After answering it rests (1.8 s right / 3.2 s wrong / 2.2 s unsure) so the bubble can be read. Equations it never reached count as out of time. Steps with `note` go on the desk notepad. It never waits for the player.
 - **Stage setup** (`createEngine` + `classroom.stageConfig`): one fixed topic level (no level-ups or bosses), `LimitedSource` of 12, `unlimitedLives`, `speedUp: 1`, `wrongPenalty: 0.05`, lanes from the stage (1 calm / 2 quick), and speed = setting × stage `speedFactor` (1, 1.3 quick, ×1.1 per stage past 16).
 - **Stage ladder** (`classroom.ts`): stage → topic `TOPIC_LADDER[⌊(stage−1)/2⌋]`: small sums, sums to 10, **three numbers: find a 10** (classroom-only config: 3 terms, one pair always makes 10), take away, ± to 20, 2/5/10 tables, times tables, big sums, sharing. Odd stages are calm, even stages quick. Pass = `PASS_CORRECT` (9 of 12) player-correct answers.
 - **End of stage** (both engines `complete`): `recordPractice` (+1 companion mastery, max 5) and `recordStage` (passing unlocks stage n+1) are saved, `math.practice.stage.end` is logged, and the result panel offers Next (auto-advance countdown when passed), Try again and Leave. Each retry or next stage remounts `ClassroomStage` with a fresh seed. The telemetry session spans the whole visit.
@@ -127,11 +128,11 @@ stateDiagram-v2
 |---|---|
 | difficulty `d` (0–1) | `+`: 0.08 + 0.45·min(ans,100)/100 (+0.15 with carry) · `−`: 0.12 + 0.45·a/100 (+0.15 with borrow) · `×`: 0.3 + 0.5·ans/100 · `÷`: 0.4 + 0.5·a/100 |
 | skill `s` | mastery / 5 |
-| think time | `(0.3 + 0.95·d) · (1 − 0.55·s) · normalTravelMs · jitter(0.85–1.15)` |
+| think time | `(0.35 + d) · (1.35 − 0.8·s) · normalTravelMs · jitter(0.85–1.15)` (v0.7: slower) |
 | finished? | think time < this equation's actual travel time (so Turbo can outpace it) |
 | P(correct) | 1 at s = 1, else `max(0.15, 1 − 0.9·d·(1 − s))` |
 | reasoning & mistakes | `think({op, terms}, { proficiency: s, wrong: !right })`: strategy tier by proficiency; wrong answers come from a slip in the reasoning (see MENTAL-MATH.md) |
-| step factor | think time × `(0.75 + 0.08 × steps)` |
+| step factor | think time × `(0.8 + 0.05 × min(steps, 6))` |
 
 `normalTravelMs` = level travel time × lane bonus for Auto lanes at speed 1 (the "normal auto speed" yardstick). Tests check that 5★ gets 100% on every topic, that each star helps, and that 0★ struggles with ÷.
 
@@ -140,11 +141,14 @@ stateDiagram-v2
 - **Lanes:** up to `lanes` equations fly at once (1–4), one per lane. `lanes` comes from the setting, or from the level when the setting is `auto`. Spawns are staggered by `max(600, travelMs / lanes × 0.55)` ms. The engine never has more in flight than the spirit has HP left, so a round ends cleanly.
 - **Answer matching:** a submitted number hits the equation it solves. If several match, the one with the highest `progress` (most dangerous) is hit.
 - **Wrong answer:** the front equation jumps forward by `wrongPenalty` (0.12, capped at 0.98) and the streak resets.
+- **Knockback (correct answer):** every *other* equation in flight gets `recoil += knockback` (default 0.18 of the lane). While `recoil > 0` it slides back over ~250 ms instead of advancing, never below 0. This lets a player claw back time in multi-lane play. Applies to the classroom columns too (`answerFor` goes through the same path).
+- **Input allowance:** each equation's travel time also gets `inputAllowance(problem)` from the player's input pace (`core/pace`, setting *Input time help*). Spawn spacing uses the base travel time. See [INPUT-PACE.md](../INPUT-PACE.md).
+- **Lives:** 5 (`DEFAULT_LIVES`), refilled to full at the start of every new round (`refillLives`, event `lives.refill`).
 - **Timeout** (progress reaches 1): lose a life, streak resets. In pack mode the problem is re-queued. At 0 lives the game is over.
 - **Travel time:** `level.travelMs × speedUp^hitsThisLevel × (1 + 0.35 × (lanes − 1)) ÷ speedMultiplier`, with a floor of 1200 ms. `speedUp` defaults to 0.95; packs can set their own.
 - **Points:** `(10 + 2·level + round(20·(1 − progress)) + 5·(concurrent − 1)) × (1 + 0.1·min(streak − 1, 10))`.
 - **Effects:** "CRITICAL!" when answered at `progress < 0.35`. The view derives every animation from `state.effects` (the last 12 outcomes), so the engine stays UI-free.
-- **Boss rounds** (last round of each encounter): `hitsToDefeat × 1.5` (rounded up), one extra lane (max 4) when lanes are on Auto, and a 3.2 s post-defeat pause instead of 1.8 s.
+- **Boss rounds** (last round of each encounter): `hitsToDefeat × 1.3` (rounded up), same lanes and pace as the stage (v0.9: no extra lane), and a 3.2 s post-defeat pause instead of 1.8 s.
 - **Levels:** see the table below. Past stage 10, `levelAt()` repeats the last rules, is 12% faster per stage (floor 2000 ms) and adds a lane every 3 stages (max 4).
 
 | Stage | Name | Content | travelMs | Hits | Lanes (auto) |
@@ -172,8 +176,8 @@ stateDiagram-v2
 | Device | Mapping |
 |---|---|
 | Keyboard | 0–9 type · Enter/Space fire · Backspace/Delete erase · Esc/P pause. The on-screen keypad hides while a keyboard is in use |
-| Gamepad | D-pad/left stick moves the keypad cursor · A presses · B/X erase · Y/RT fire · Start pause |
-| Touch/mouse | on-screen keypad in the bottom-left dock (a bottom bar on portrait phones) |
+| Gamepad | **Radial number dial**: left stick points at 0–9 (D-pad turns the dial) · A types · X deletes (B too) · Y sends (RT too) · Start pause. In-game the stick doesn't navigate (`stickAsNav: false`); menus still do |
+| Touch/mouse | on-screen keypad in the bottom-left dock (a bottom bar on portrait phones). The dial's numbers can also be tapped |
 
 ## Content packs
 

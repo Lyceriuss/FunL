@@ -8,7 +8,7 @@ Long ago, everything in **Lumora** moved to the **Numbersong**. Rivers counted t
 
 Then came **the Static**: a grey, buzzing noise that scrambles the song. Spirits caught in it forget their names and their purpose. Their confusion turns into fear, and their fear turns into fangs, thorns and storms. These are the "monsters".
 
-The player is a **Tuner**: someone who can find the true answer fast. Every correct answer strikes a clear note of the Numbersong. Enough clear notes and the Static cracks. Each crack lets more of the real spirit show through, which is why the creatures get cuter round by round. The last piece of Static clings on as a **shard**, and breaking it (the boss round) **purifies** the spirit. A purified spirit remembers its name and may choose to travel with the Tuner.
+The player is a **Tuner**: someone who can find the true answer fast. Our Tuner is a young swordswoman with a red ribbon in her ponytail. Every correct answer strikes a clear note of the Numbersong. Enough clear notes and the Static cracks. Each crack lets more of the real spirit show through, which is why the creatures get cuter round by round. The last piece of Static clings on as a **shard**, and breaking it (the boss round) **purifies** the spirit. A purified spirit remembers its name and may choose to travel with the Tuner.
 
 ## The spirits
 

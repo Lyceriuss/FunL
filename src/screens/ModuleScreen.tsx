@@ -4,6 +4,7 @@ import type { GameModule, Settings } from '../core/modules/types';
 import { deletePack, listPacks, savePack } from '../core/telemetry/storage';
 import type { ContentPack } from '../core/telemetry/types';
 import { Screen } from '../core/ui/Screen';
+import { ConfirmButton } from '../core/ui/ConfirmButton';
 import { getLogger } from '../core/log/logger';
 
 const log = getLogger('content');
@@ -129,20 +130,19 @@ export function ModuleScreen({
                   <span className="card__title">📝 {p.title}</span>
                   <span className="card__desc">{new Date(p.createdAt).toLocaleDateString()} · {p.origin}</span>
                 </button>
-                <button
-                  type="button"
-                  className="card__remove"
-                  data-focusable
-                  aria-label={`Delete ${p.title}`}
-                  onClick={async () => {
-                    if (confirm(`Delete "${p.title}"?`)) {
+                <span className="card__remove">
+                  <ConfirmButton
+                    className="card__remove-btn"
+                    question="Delete?"
+                    yes="Delete"
+                    onConfirm={async () => {
                       await deletePack(p.id);
                       await refresh();
-                    }
-                  }}
-                >
-                  ✕
-                </button>
+                    }}
+                  >
+                    ✕
+                  </ConfirmButton>
+                </span>
               </div>
             ))}
             {!importing && (

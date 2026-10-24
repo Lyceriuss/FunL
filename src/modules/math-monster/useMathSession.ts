@@ -2,12 +2,15 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { input } from '../../core/input/InputManager';
 import { useActions, useControlScheme } from '../../core/input/hooks';
 import type { Action, ActionEvent, InputDevice } from '../../core/input/types';
+import { audio } from '../../core/audio';
 import { getLogger } from '../../core/log/logger';
 import type { GameResult } from '../../core/modules/types';
 import type { TelemetrySession } from '../../core/telemetry/TelemetrySession';
+import type { PaceHandle } from '../../core/pace/usePace';
 import { mathControls } from './controls';
 import type { EngineEvent, MathMonsterEngine } from './engine';
-import { KEYPAD_KEYS, KEYPAD_START, keypadIndexFor, moveKeypadCursor } from './keypadLayout';
+import { DIAL_DEADZONE, dialDigitAt, rotateDial } from './dialLayout';
+import { KEYPAD_KEYS, keypadIndexFor } from './keypadLayout';
 
 const log = getLogger('math-monster');
 /** Engine events worth a diagnostic log line (everything is in telemetry anyway). */
@@ -31,13 +34,18 @@ export function useMathSession(opts: {
   finishDelayMs?: number;
   /** End the session automatically on game over / complete (default true). */
   autoFinish?: boolean;
+  /** Player's input pace: learns from every answer (see core/pace). */
+  pace?: PaceHandle;
 }) {
   const { engine, telemetry, ready } = opts;
   useControlScheme(mathControls);
   const [, setFrame] = useState(0);
   const device = useRef<InputDevice>(input.lastDevice);
   const [lastDevice, setLastDevice] = useState<InputDevice>(input.lastDevice);
-  const [cursor, setCursor] = useState(KEYPAD_START);
+  /** Radial dial (controller): selected digit and the last one typed. */
+  const [dial, setDial] = useState(0);
+  const dialRef = useRef(0);
+  const [dialFlash, setDialFlash] = useState<number | null>(null);
   const [pressed, setPressed] = useState<number | null>(null);
   const finished = useRef(false);
   const latest = useRef(opts);
@@ -54,6 +62,8 @@ export function useMathSession(opts: {
       const { type, ...data } = e;
       telemetry.log(`math.${type}`, data, device.current);
       if (LOGGED_EVENTS.has(type)) log.debug(type, data);
+      // Every submitted answer teaches the input-pace model (input time vs digits, per device).
+      if (e.type === 'answer.correct' || e.type === 'answer.wrong') latest.current.pace?.observe(device.current, e.digits, e.typingMs);
       latest.current.onEvent?.(e);
     });
     engine.start();
@@ -74,6 +84,19 @@ export function useMathSession(opts: {
       const dt = Math.min(100, now - last);
       engine.tick(dt);
       last = now;
+      // Left stick points at a digit on the dial.
+      const stick = input.stick();
+      if (stick.magnitude > DIAL_DEADZONE) {
+        // Input time starts the moment the player starts moving the controller.
+        engine.markInputStart();
+        const d = dialDigitAt(stick.angle);
+        if (d !== dialRef.current) {
+          dialRef.current = d;
+          setDial(d);
+        }
+        if (input.lastDevice !== 'gamepad') input.lastDevice = 'gamepad';
+        setLastDevice('gamepad');
+      }
       latest.current.onFrame?.(dt);
       setFrame((f) => (f + 1) % 1_000_000);
       raf = requestAnimationFrame(loop);
@@ -111,6 +134,12 @@ export function useMathSession(opts: {
     return () => clearTimeout(id);
   }, [pressed]);
 
+  useEffect(() => {
+    if (dialFlash === null) return;
+    const id = setTimeout(() => setDialFlash(null), 140);
+    return () => clearTimeout(id);
+  }, [dialFlash]);
+
   const apply = (action: Action) => {
     if (action.type === 'math.digit') engine.digit(action.value as number);
     else if (action.type === 'math.backspace') engine.backspace();
@@ -118,17 +147,26 @@ export function useMathSession(opts: {
   };
 
   const paused = state.phase === 'paused';
+  useEffect(() => {
+    audio.duck(paused);
+    return () => audio.duck(false);
+  }, [paused]);
 
   useActions((e: ActionEvent) => {
     device.current = e.device;
     const a = e.action;
+    // Any controller action (turning the dial, A, X) starts the input clock too.
+    if (e.device === 'gamepad' && a.type !== 'pause') engine.markInputStart();
     if (a.type === 'pause') {
       engine.pause();
     } else if (a.type === 'nav' && 'dir' in a) {
-      setCursor((c) => moveKeypadCursor(c, a.dir));
+      // D-pad (or arrow keys) turn the dial.
+      const next = rotateDial(dialRef.current, a.dir === 'left' || a.dir === 'up' ? -1 : 1);
+      dialRef.current = next;
+      setDial(next);
     } else if (a.type === 'math.press') {
-      setPressed(cursor);
-      apply(KEYPAD_KEYS[cursor].action);
+      setDialFlash(dialRef.current);
+      apply({ type: 'math.digit', value: dialRef.current });
     } else {
       const i = keypadIndexFor(a);
       if (i >= 0) setPressed(i);
@@ -141,5 +179,12 @@ export function useMathSession(opts: {
     input.dispatch(KEYPAD_KEYS[i].action, dev, `Keypad:${KEYPAD_KEYS[i].hit}`);
   };
 
-  return { state, paused, lastDevice, cursor, pressed, onKeypadPress, finish, finished, device };
+  const onDialPick = (digit: number, dev: InputDevice) => {
+    dialRef.current = digit;
+    setDial(digit);
+    setDialFlash(digit);
+    input.dispatch({ type: 'math.digit', value: digit }, dev, `Dial:${digit}`);
+  };
+
+  return { state, paused, lastDevice, dial, dialFlash, pressed, onKeypadPress, onDialPick, finish, finished, device };
 }

@@ -7,7 +7,8 @@ import { MASTERY_MAX, PRACTICE_LENGTH } from './companion';
 import type { MathOptions } from './options';
 import { Stars } from './PracticeGame';
 import { SpiritJournal } from './SpiritJournal';
-import { classroomUnlocked, loadSpirits, masteryOf, saveSpirits, type SpiritProgress } from './spirits';
+import { deleteProgress } from '../../core/telemetry/storage';
+import { classroomUnlocked, emptyProgress, loadSpirits, masteryOf, saveSpirits, type SpiritProgress } from './spirits';
 
 const log = getLogger('math-monster.hub');
 
@@ -42,10 +43,21 @@ export function MathHub({ profileId, onStart }: { profileId: string; onStart: (o
     log.info('companion changed in journal', { creatureId: next.companion });
   };
 
+  const reset = async () => {
+    try {
+      await deleteProgress('math-monster', profileId);
+      setProgress(emptyProgress());
+      log.info('math monster progress reset', { profileId });
+    } catch (err) {
+      log.error('could not reset progress', err);
+    }
+  };
+
   return (
     <>
       <PracticeSection progress={progress} onStart={onStart} />
       <SpiritJournal progress={progress} onChange={change} />
+      <ResetProgress onReset={reset} />
     </>
   );
 }
@@ -54,14 +66,21 @@ function PracticeSection({ progress, onStart }: { progress: SpiritProgress; onSt
   const pal = progress.companion ? getCreature(progress.companion) : undefined;
 
   if (!pal) {
+    // No companion yet: the practice hall stands empty.
     return (
       <section>
         <h2 className="section-title">Practice classroom</h2>
-        <div className="panel practice-locked">
-          <span className="practice-locked__icon">🔒</span>
+        <div className="panel practice-empty">
+          <div className="practice-empty__room" aria-hidden>
+            <div className="practice-empty__board" />
+            <div className="practice-empty__desks">
+              <span />
+              <span />
+            </div>
+          </div>
           <div>
-            <strong>Befriend a spirit in Adventure to unlock practice.</strong>
-            <p className="muted">Then you can practise together in class, and help your companion get better at maths.</p>
+            <strong>🔒 The classroom is empty.</strong>
+            <p className="muted">Befriend a spirit in Adventure, and it will come and practise maths here with you.</p>
           </div>
         </div>
       </section>
@@ -118,5 +137,61 @@ function StageLadder({ unlocked, onPlay }: { unlocked: number; onPlay: (stage: n
         </div>
       )}
     </>
+  );
+}
+
+/**
+ * Start the adventure over: forgets befriended spirits, the companion, its
+ * maths stars and classroom stages. Two steps (no browser dialog), so it
+ * works with a controller too. Play history (sessions) is kept.
+ */
+function ResetProgress({ onReset }: { onReset: () => Promise<void> }) {
+  const [confirming, setConfirming] = useState(false);
+  const [done, setDone] = useState(false);
+  return (
+    <section>
+      <h2 className="section-title">Progress</h2>
+      <div className="panel reset-progress">
+        {!confirming ? (
+          <>
+            <div>
+              <strong>Start the adventure over</strong>
+              <p className="muted">
+                {done
+                  ? 'Progress reset. The spirits are waiting in Adventure again.'
+                  : 'Forget befriended spirits, your companion, its maths stars and classroom stages. Play history is kept.'}
+              </p>
+            </div>
+            <button type="button" className="btn" data-focusable onClick={() => setConfirming(true)}>
+              ↺ Reset progress
+            </button>
+          </>
+        ) : (
+          <>
+            <div>
+              <strong>Are you sure?</strong>
+              <p className="muted">This can't be undone.</p>
+            </div>
+            <div className="row">
+              <button
+                type="button"
+                className="btn btn--danger"
+                data-focusable
+                onClick={async () => {
+                  await onReset();
+                  setConfirming(false);
+                  setDone(true);
+                }}
+              >
+                Yes, reset
+              </button>
+              <button type="button" className="btn" data-focusable onClick={() => setConfirming(false)}>
+                Cancel
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </section>
   );
 }

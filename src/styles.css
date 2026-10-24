@@ -181,3 +181,63 @@ button.chip { cursor: pointer; font-size: 15px; }
 .card--practice { min-height: 80px; }
 .practice-continue { width: 100%; min-height: 0; align-items: flex-start; }
 .stage-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 12px; }
+
+/* Empty practice hall (no companion yet) */
+.practice-empty { display: flex; gap: 18px; align-items: center; }
+.practice-empty p { margin: 4px 0 0; }
+.practice-empty__room { flex: none; width: 150px; padding: 10px; background: linear-gradient(#2a1f4a 60%, #3b2717 60%); border-radius: 6px; opacity: 0.85; }
+.practice-empty__board { height: 40px; background: #17302a; border: 4px solid #6b4226; border-radius: 3px; }
+.practice-empty__desks { display: flex; justify-content: space-around; margin-top: 18px; }
+.practice-empty__desks span { width: 46px; height: 18px; background: linear-gradient(#9a6236 0 5px, #5a371f 5px); border-radius: 2px; }
+
+/* Reset progress */
+.reset-progress { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
+.reset-progress p { margin: 4px 0 0; }
+.btn--danger { background: linear-gradient(135deg, #be123c, #f43f5e); border-color: transparent; color: white; }
+
+
+/* Controller: make the focused element unmistakable. */
+html[data-input='gamepad'] [data-focusable]:focus {
+  outline: 3px solid var(--primary); outline-offset: 3px;
+  box-shadow: 0 0 0 6px rgb(34 211 238 / 0.25), 0 0 24px rgb(34 211 238 / 0.55);
+}
+html[data-input='gamepad'] .card[data-focusable]:focus { transform: translateY(-3px) scale(1.02); }
+
+/* Sound panel */
+.sound-panel { display: flex; flex-direction: column; gap: 24px; }
+.sound-row { display: grid; grid-template-columns: minmax(150px, 220px) 1fr; gap: 6px 16px; align-items: start; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.sound-row__label { display: flex; flex-direction: column; gap: 2px; }
+.sound-row__label .muted { font-size: 13px; }
+.sound-row__chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.sound-chip {
+  display: inline-flex; flex-direction: column; align-items: flex-start; gap: 0; padding: 6px 12px;
+  border: 1px solid var(--border); background: var(--surface); color: var(--text); font-weight: 700; cursor: pointer;
+  clip-path: polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%);
+}
+.sound-chip small { font-weight: 400; font-size: 11px; color: var(--muted); letter-spacing: 0.06em; text-transform: uppercase; }
+.sound-chip.is-selected { background: linear-gradient(135deg, #0891b2, #22d3ee); color: var(--primary-ink); }
+.sound-chip.is-selected small { color: rgb(5 3 20 / 0.7); }
+.sound-panel--compact .sound-row { grid-template-columns: 1fr; }
+@media (max-width: 640px) { .sound-row { grid-template-columns: 1fr; } }
+
+/* On-screen keyboard (controller name entry) */
+.osk { display: flex; flex-direction: column; gap: 6px; }
+.osk__row { display: flex; gap: 6px; flex-wrap: wrap; }
+.osk__key {
+  min-width: 44px; height: 44px; padding: 0 10px; border: 1px solid var(--border); background: var(--surface);
+  color: var(--text); font: inherit; font-weight: 700; font-size: 18px; cursor: pointer;
+  clip-path: polygon(6px 0, 100% 0, calc(100% - 6px) 100%, 0 100%);
+}
+.osk__key--wide { min-width: 100px; font-size: 15px; }
+.osk__key--done { background: linear-gradient(135deg, #0891b2, #22d3ee); color: var(--primary-ink); }
+.osk-toggle { font-size: 13px; padding: 4px 8px; text-transform: none; letter-spacing: normal; }
+
+/* Inline confirm (replaces window.confirm) */
+.confirm-inline { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; padding: 4px 8px; background: rgb(244 63 94 / 0.12); border: 1px solid rgb(244 63 94 / 0.4); }
+.confirm-inline__q { font-weight: 700; font-size: 14px; }
+.card__remove-btn { border: none; background: transparent; color: var(--muted); cursor: pointer; padding: 6px; font-size: 14px; }
+
+/* Input pace map (Data screen) */
+.pace-list { display: flex; flex-direction: column; gap: 12px; }
+.pace-caption { caption-side: top; text-align: left; padding: 8px 12px; font-weight: 700; color: var(--text); }
+.pace-extra { color: #fbbf24; font-weight: 700; }

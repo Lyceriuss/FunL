@@ -163,6 +163,12 @@ export async function saveProgress(moduleId: string, profileId: string, data: un
   });
 }
 
+/** Forget a player's long-lived progress for one module (e.g. start the adventure over). */
+export async function deleteProgress(moduleId: string, profileId: string): Promise<void> {
+  await (await db()).delete('progress', `${moduleId}:${profileId}`);
+  log.info('module progress reset', { moduleId, profileId });
+}
+
 /** Full dump of everything, for export / hand-off to analysis or an MCP server. */
 export async function exportAll(): Promise<{
   exportedAt: string;

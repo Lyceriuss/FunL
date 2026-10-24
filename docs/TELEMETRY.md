@@ -44,14 +44,16 @@ Times are **engine ms** (they stop while paused). `key` is a stable fact id such
 | kind | data |
 |---|---|
 | `math.level.start` | `level`, `name`, `hitsToDefeat`, `lanes`, `travelMs`, `encounter` (0-based), `round` (1–5), `boss`. Emitted when the round is *scheduled* (at the previous K.O.), before its intro |
-| `math.problem.spawn` | `id` (equation instance, unique per session), `key`, `text`, `answer`, `level`, `travelMs`, `lane`, `concurrent` |
+| `math.problem.spawn` | `id` (equation instance, unique per session), `key`, `text`, `answer`, `level`, `travelMs` (includes the allowance), `allowanceMs` (extra time for the player's input pace), `lane`, `concurrent` |
+| `math.input.start` | `at`: the player started entering an answer (first stick movement, controller button, key or tap). Input time is measured from here |
 | `math.input.digit` | `digit`, `value` (input after the keypress) |
 | `math.input.backspace` | `value` |
 | `math.input.rejected` | `reason`: `too-long` · `empty-submit` · `no-problem` |
-| `math.answer.correct` | `id`, `key`, `answer`, `responseMs` (spawn → submit), `firstInputMs` (spawn → first digit of this answer: think time), `typingMs` (first digit → submit), `keystrokes`, `backspaces`, `wrongAnswers[]` (earlier wrong tries that hit this equation), `progress`, `points`, `streak`, `lane`, `concurrent`, `frontmost` (true if it was the most dangerous equation) |
-| `math.answer.wrong` | `id` (of the front equation), `given`, `key`/`answer` of the **front** equation (which receives the penalty), `activeKeys[]` (all on screen, most dangerous first), `responseMs`, `keystrokes`, `backspaces`, `progress` (after penalty) |
+| `math.answer.correct` | `id`, `key`, `answer`, `responseMs` (spawn → submit), `firstInputMs` (spawn → first input movement for this answer: think time), `typingMs` (input time: first input movement → submit; from v0.10 the first movement includes stick movement), `digits`, `keystrokes`, `backspaces`, `wrongAnswers[]` (earlier wrong tries that hit this equation), `progress`, `points`, `streak`, `lane`, `concurrent`, `frontmost` (true if it was the most dangerous equation), `pushedBack` (other equations knocked back by this answer) |
+| `math.answer.wrong` | `id` (of the front equation), `given`, `key`/`answer` of the **front** equation (which receives the penalty), `activeKeys[]` (all on screen, most dangerous first), `responseMs`, `typingMs` (input time), `digits` (of the given answer), `keystrokes`, `backspaces`, `progress` (after penalty) |
 | `math.problem.timeout` | `id`, `key`, `answer`, `partialInput`, `wrongAnswers[]`, `lane`, `concurrent` |
 | `math.life.lost` | `lives` remaining (not emitted in practice) |
+| `math.lives.refill` | `lives` (now full), `restored`. Emitted when a new round starts with lives missing |
 | `math.monster.defeated` | `level`, `encounter`, `round`, `boss` |
 | `math.game.pause` | `reason`: `player` (pause button/key) · `hidden` (tab hidden) · `story` (befriend dialog) |
 | `math.game.resume` | `{}` |
@@ -74,8 +76,13 @@ Times are **engine ms** (they stop while paused). `key` is a stable fact id such
 | `byOp` | per operator: `{ attempts, correct, medianMs }` |
 | `hardestFacts[]` | up to 6 facts that were missed, answered wrong first, or slower than max(1.75 × own median, 3 s): `{ key, ms, missed }` |
 | `misinputs` | `missedTaps`, `unmappedKeys`, `emptySubmits`, `backspaces` |
+| `inputPace` | on the device used most: `device`, `medianInputMs`, `medianMsPerDigit`, `answers` |
 
 Practice sessions add `summary.practice`: `{ companionId, stagesPlayed, stagesCleared, highestStage, unlocked, masteryAfter, companionCorrect, companionAnswered, stages: [{ stage, topic, pace, length, completed, passed, playerCorrect, playerWrong, playerTimeouts, petCorrect, petWrong, petUnfinished, masteryBefore, masteryAfter, score, bestStreak, playMs, level }] }`. The top-level summary fields cover all stages together.
+
+### Input pace record (`progress` store, key `input-pace:<profileId>`)
+
+`{ version: 1, samples: { [device]: { "1" | "2" | "3" | "4": number[] } } }`: the last 15 accepted input times (ms) per device and answer length. See docs/INPUT-PACE.md.
 
 ### Math Monster progress record (`progress` store, key `math-monster:<profileId>`)
 

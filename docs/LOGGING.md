@@ -46,7 +46,7 @@ Every entry carries `ctx`, set by the shell: `route`, `moduleId`, `sessionId` (d
 
 ## Namespaces in use
 
-`app` · `ui` · `input` · `storage` · `telemetry` · `content` · `data` · `math-monster` · `math-monster.journal`
+`app` · `ui` · `input` · `storage` · `telemetry` · `content` · `data` · `math-monster` · `math-monster.journal` · `math-monster.practice` · `math-monster.hub` · `audio` · `pace`
 
 ## Getting logs from a device
 

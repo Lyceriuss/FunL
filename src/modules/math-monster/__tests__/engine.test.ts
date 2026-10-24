@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MathMonsterEngine, type EngineEvent } from '../engine';
+import { KNOCKBACK, MathMonsterEngine, type EngineEvent } from '../engine';
 import { DEFAULT_LEVELS, levelAt } from '../levels';
 import { GeneratedSource, PackSource, generate, levelsForPack } from '../problems';
 import { createRng } from '../rng';
@@ -74,7 +74,7 @@ describe('engine', () => {
   });
 
   it('loses a life on timeout and ends the game at zero lives', () => {
-    const { engine, events } = setup(DEFAULT_LEVELS, 2);
+    const { engine, events } = setup(DEFAULT_LEVELS, 2); // explicit 2 lives
     engine.tick(DEFAULT_LEVELS[0].travelMs);
     expect(engine.state.lives).toBe(1);
     engine.tick(2000);
@@ -136,6 +136,74 @@ describe('engine', () => {
     expect(hit.key).toBe(expected.problem.key);
   });
 
+  it('a correct answer knocks the other equations back (claw your way back)', () => {
+    const engine = new MathMonsterEngine({ levels: DEFAULT_LEVELS, source: new GeneratedSource(8), lanes: 3 });
+    const events: EngineEvent[] = [];
+    engine.on((e) => events.push(e));
+    engine.start();
+    for (let i = 0; i < 60 && engine.state.active.length < 3; i++) engine.tick(500);
+    const [first, ...others] = [...engine.state.active].sort((a, b) => b.progress - a.progress);
+    const before = new Map(others.map((p) => [p.id, p.progress]));
+    engine.answerFor(first.id, first.problem.answer);
+    expect(events.at(-1)).toMatchObject({ type: 'answer.correct', pushedBack: 2 });
+    engine.tick(300); // the slide back takes ~250 ms
+    for (const p of engine.state.active) {
+      const was = before.get(p.id)!;
+      expect(p.progress).toBeCloseTo(Math.max(0, was - KNOCKBACK), 2);
+      expect(p.recoil).toBeCloseTo(0, 5);
+    }
+  });
+
+  it('knockback never pushes an equation past the monster, and can be disabled', () => {
+    const make = (knockback?: number) => {
+      const engine = new MathMonsterEngine({ levels: DEFAULT_LEVELS, source: new GeneratedSource(8), lanes: 2, knockback });
+      engine.start();
+      for (let i = 0; i < 60 && engine.state.active.length < 2; i++) engine.tick(200);
+      return engine;
+    };
+    const e1 = make();
+    const [a, b] = [...e1.state.active].sort((x, y) => y.progress - x.progress);
+    e1.answerFor(a.id, a.problem.answer);
+    e1.tick(400);
+    expect(b.progress).toBeGreaterThanOrEqual(0);
+
+    const e2 = make(0);
+    const [c, d] = [...e2.state.active].sort((x, y) => y.progress - x.progress);
+    const was = d.progress;
+    e2.answerFor(c.id, c.problem.answer);
+    e2.tick(100);
+    expect(d.progress).toBeGreaterThan(was);
+  });
+
+  it('adds an input allowance to travel time per equation', () => {
+    const engine = new MathMonsterEngine({
+      levels: DEFAULT_LEVELS,
+      source: new GeneratedSource(1),
+      inputAllowance: (p) => p.answer * 100,
+    });
+    const events: EngineEvent[] = [];
+    engine.on((e) => events.push(e));
+    engine.start();
+    engine.tick(1500);
+    const spawn = events.find((e) => e.type === 'problem.spawn') as { travelMs: number; allowanceMs: number; answer: number };
+    expect(spawn.allowanceMs).toBe(spawn.answer * 100);
+    expect(spawn.travelMs).toBe(engine.currentTravelMs() + spawn.allowanceMs);
+  });
+
+  it('measures input time from the first input movement, not the first digit', () => {
+    const { engine, events } = setup();
+    engine.tick(500);
+    engine.markInputStart(); // e.g. controller stick moved
+    engine.tick(1200); // aiming the dial…
+    for (const ch of String(engine.state.active[0].problem.answer)) engine.digit(Number(ch));
+    engine.tick(300);
+    engine.submit();
+    const c = events.find((e) => e.type === 'answer.correct') as { typingMs: number; firstInputMs: number; digits: number };
+    expect(c.typingMs).toBe(1500);
+    expect(c.firstInputMs).toBe(500);
+    expect(c.digits).toBeGreaterThan(0);
+  });
+
   it('speed setting shortens travel time, with a floor', () => {
     const make = (speedMultiplier: number) =>
       new MathMonsterEngine({ levels: DEFAULT_LEVELS, source: new GeneratedSource(1), speedMultiplier, lanes: 1 });
@@ -171,11 +239,11 @@ describe('encounters', () => {
       [1, 1, false],
       [1, 2, false],
     ]);
-    // Boss round (level 7) has 1.5× the base hits.
-    expect(starts[4].hitsToDefeat).toBe(Math.ceil(levelAt(DEFAULT_LEVELS, 7).hitsToDefeat * 1.5));
+    // Boss round (level 7) has 1.3× the base hits.
+    expect(starts[4].hitsToDefeat).toBe(Math.ceil(levelAt(DEFAULT_LEVELS, 7).hitsToDefeat * 1.3));
   });
 
-  it('gives the boss an extra lane on auto lanes', () => {
+  it('boss rounds have more HP but the same lanes', () => {
     const engine = new MathMonsterEngine({
       levels: DEFAULT_LEVELS,
       source: new GeneratedSource(1),
@@ -183,7 +251,28 @@ describe('encounters', () => {
       roundsPerEncounter: 1, // every round is a boss round
     });
     expect(engine.state.boss).toBe(true);
-    expect(engine.state.lanes).toBe((DEFAULT_LEVELS[0].lanes ?? 1) + 1);
+    expect(engine.state.lanes).toBe(DEFAULT_LEVELS[0].lanes ?? 1);
+    expect(engine.state.monsterHp).toBe(Math.ceil(DEFAULT_LEVELS[0].hitsToDefeat * 1.3));
+  });
+
+  it('starts with 5 lives and refills them at every new round', () => {
+    const engine = new MathMonsterEngine({ levels: DEFAULT_LEVELS, source: new GeneratedSource(2) });
+    const events: EngineEvent[] = [];
+    engine.on((e) => events.push(e));
+    engine.start();
+    expect(engine.state.lives).toBe(5);
+    engine.tick(1500);
+    engine.tick(DEFAULT_LEVELS[0].travelMs); // miss one
+    expect(engine.state.lives).toBe(4);
+    // clear the round
+    for (let i = 0; i < 300 && engine.state.level === 1; i++) {
+      engine.tick(400);
+      const cur = engine.state.active[0];
+      if (cur) type(engine, cur.problem.answer);
+    }
+    expect(engine.state.level).toBe(2);
+    expect(engine.state.lives).toBe(5);
+    expect(events.some((e) => e.type === 'lives.refill' && e.restored === 1)).toBe(true);
   });
 
   it('ignores ticks before start()', () => {
