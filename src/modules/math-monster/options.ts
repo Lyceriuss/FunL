@@ -1,5 +1,5 @@
 import type { Settings } from '../../core/modules/types';
-import { MathMonsterEngine } from './engine';
+import { MathMonsterEngine, type EngineConfig } from './engine';
 import { DEFAULT_LEVELS, levelAt } from './levels';
 import { GeneratedSource, LimitedSource, PackSource, levelsForPack } from './problems';
 import type { LevelConfig, MathPack } from './schema';
@@ -20,7 +20,10 @@ export function sessionSeed(options: MathOptions): number {
   return options.seed ?? Math.floor(Math.random() * 2 ** 31);
 }
 
-export function createEngine(options: MathOptions, settings: Settings, seed: number): MathMonsterEngine {
+/** Extra engine options from the view, e.g. the input allowance from the player's pace. */
+export type EngineExtras = Pick<EngineConfig, 'inputAllowance'>;
+
+export function createEngine(options: MathOptions, settings: Settings, seed: number, extras: EngineExtras = {}): MathMonsterEngine {
   const speedMultiplier = Number(settings.speed ?? 1) || 1;
   const lanes = settings.lanes === 'auto' || settings.lanes === undefined ? 'auto' : Number(settings.lanes);
 
@@ -28,6 +31,7 @@ export function createEngine(options: MathOptions, settings: Settings, seed: num
     case 'pack':
       return new MathMonsterEngine({
         levels: levelsForPack(options.pack),
+        ...extras,
         source: new PackSource(options.pack, seed),
         speedUp: options.pack.speedUp,
         speedMultiplier,
@@ -37,6 +41,7 @@ export function createEngine(options: MathOptions, settings: Settings, seed: num
       // The stage decides topic, pace and lanes; the speed setting still scales it.
       const stage = stageConfig(options.stage);
       return new MathMonsterEngine({
+        ...extras,
         levels: [{ ...stage.levelConfig, hitsToDefeat: Number.MAX_SAFE_INTEGER }],
         source: new LimitedSource(new GeneratedSource(seed), stage.length),
         speedUp: 1, // steady pace within a stage: difficulty rises between stages
@@ -49,6 +54,7 @@ export function createEngine(options: MathOptions, settings: Settings, seed: num
     }
     case 'adventure':
       return new MathMonsterEngine({
+        ...extras,
         levels: DEFAULT_LEVELS,
         source: new GeneratedSource(seed),
         startLevel: options.startLevel,

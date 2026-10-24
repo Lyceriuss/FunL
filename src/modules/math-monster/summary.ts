@@ -19,6 +19,8 @@ export interface MathSummary {
   /** Facts that took longest or were missed — good practice targets. */
   hardestFacts: { key: string; ms: number | null; missed: boolean }[];
   misinputs: { missedTaps: number; unmappedKeys: number; emptySubmits: number; backspaces: number };
+  /** Input time (first input movement → answer) on the device used most, for correct answers. */
+  inputPace: { device: string | null; medianInputMs: number | null; medianMsPerDigit: number | null; answers: number };
   playMs: number;
 }
 
@@ -58,6 +60,25 @@ export function summarize(state: SummaryInput, events: readonly TelemetryEvent[]
       backspaces: count((e) => e.kind === 'math.input.backspace'),
     },
     playMs: Math.round(state.time),
+    inputPace: inputPaceOf(events),
+  };
+}
+
+function inputPaceOf(events: readonly TelemetryEvent[]): MathSummary['inputPace'] {
+  const answers = events.filter((e) => e.kind === 'math.answer.correct' && typeof e.data.typingMs === 'number');
+  const byDevice = new Map<string, TelemetryEvent[]>();
+  for (const e of answers) {
+    const d = e.device ?? 'unknown';
+    byDevice.set(d, [...(byDevice.get(d) ?? []), e]);
+  }
+  const main = [...byDevice.entries()].sort((a, b) => b[1].length - a[1].length)[0];
+  if (!main) return { device: null, medianInputMs: null, medianMsPerDigit: null, answers: 0 };
+  const [device, list] = main;
+  return {
+    device,
+    medianInputMs: median(list.map((e) => e.data.typingMs as number)),
+    medianMsPerDigit: median(list.map((e) => (e.data.typingMs as number) / Math.max(1, (e.data.digits as number) ?? 1))),
+    answers: list.length,
   };
 }
 

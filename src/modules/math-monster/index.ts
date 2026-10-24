@@ -33,6 +33,15 @@ export const mathMonsterModule: GameModule<MathOptions> = {
       default: 1,
     },
     {
+      id: 'inputHelp',
+      label: 'Input time help',
+      choices: [
+        { label: 'Auto', value: 'auto' },
+        { label: 'Off', value: 'off' },
+      ],
+      default: 'auto',
+    },
+    {
       id: 'lanes',
       label: 'Equations at once',
       choices: [
