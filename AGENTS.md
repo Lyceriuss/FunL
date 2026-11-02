@@ -20,6 +20,7 @@ Planned next: an MCP server, so an AI assistant can create content packs (e.g. f
 | `npm run typecheck` | `tsc -b` |
 | `npm run lint` | oxlint |
 | `npm run build` | typecheck + production build to `dist/` |
+| `npm run diagrams` | draw every Mermaid diagram in `docs/` as an SVG in `docs/diagrams/` and collect them in `docs/DIAGRAMS.md` + the README's "How it fits together" (run after editing a diagram; needs Edge or Chrome; `npm test` fails while anything is stale) |
 
 **Before you call a change done:** run `npm run typecheck && npm run lint && npm test`. In dev builds, browser tests can reach `window.__funl.engine` (current game engine) and `window.__funlInput` (InputManager). For UI changes, also run the app and try it with keyboard *and* touch. Try a controller too if input code changed.
 
@@ -42,15 +43,18 @@ src/
                            expressions with order of operations (expression.ts) and Forge puzzles (forge.ts, docs/FORGE.md)
     ui/                    Screen wrapper (controller menu navigation), ErrorBoundary, and the game UI kit:
                            number-entry/ (keypad, radial dial, NumberDock), forge/ (ForgeBoardView, forgeControls),
-                           PauseMenu, Hero, ThinkBubble, useFlip, game.css, uml/ (UmlGraph: Mermaid diagrams)
+                           PathMap (world-map style node path), PauseMenu, Hero, ThinkBubble, useFlip, game.css
   modules/
     math-monster/          Pure engine (incl. Forge boss rounds), modes (Adventure, Practice classroom, Forge practice), spirits, companion skill model. See docs/modules/math-monster.md
     maze-duel/             Race Glitch through a number maze: board generator, DuelEngine, rival planner. See docs/modules/maze-duel.md
-  screens/                 Shell screens: Profiles, Home, Module (setup + module Hub), Results, Data, Sound, Game map (docs diagrams, lazy)
+  screens/                 Shell screens: Profiles, Home, Module (mode cards, mode pages, settings bar), Results, Data, Sound
   dev/                     Dev-only tools (e.g. ?gallery); excluded from production builds
+scripts/
+  diagrams.mjs             `npm run diagrams`: draws the docs' Mermaid diagrams as SVGs, writes docs/DIAGRAMS.md + README section
   env.d.ts                 Build-time constants (__APP_VERSION__ from package.json)
 PATCHNOTES.md              Game-style changelog: one entry per change
 docs/
+  DIAGRAMS.md, diagrams/   Generated: every diagram from the docs as SVG images on one page (don't edit by hand)
   ARCHITECTURE.md          Diagrams (component, class, sequence, state, ER) + design
   TELEMETRY.md             Data dictionary: every recorded event and field
   LOGGING.md               Logging conventions, levels, namespaces
@@ -69,7 +73,7 @@ docs/
 
 - **Action**: a semantic input such as `math.digit(7)`, `nav(up)` or `pause`. Modules never read raw keys or buttons.
 - **ControlScheme**: maps keyboard keys and gamepad buttons to actions, per module. Touch UI dispatches actions directly. Analogue input (e.g. Math Monster's radial dial) reads `input.stick()`; set `stickAsNav: false` when a module uses the stick itself.
-- **GameModule**: the contract a game implements (`core/modules/types.ts`): metadata, controls, presets, settings, an optional `importPack`, and a `Component`.
+- **GameModule**: the contract a game implements (`core/modules/types.ts`): metadata, controls, presets, settings, an optional `importPack`, and a `Component`. Optional `modes` (big cards on the module screen, each with its own panel, settings and presets; a panel can open sub-pages, `pages` + `openPage`) and `extras` (pages in the settings bar); without modes the module screen is one page with `Hub`.
 - **Engine**: a module's pure game logic with no DOM or timers. The view calls `tick(dt)`; the engine emits events.
 - **TelemetrySession**: records one play session's events (player behaviour) to IndexedDB.
 - **Logger**: records app diagnostics (errors, lifecycle). It is *not* play data.
@@ -81,6 +85,7 @@ docs/
 - **Forge puzzle** (`core/math/forge`): make the target using **every** piece (numbers, signs, brackets); the challenge is the order of operations. Board state is pure (`forgeTake/Drop/Nav/Primary/Secondary/Check…`); games render it with `ForgeBoardView`.
 - **Duel / piece / stone** (Maze Duel): each right answer is a *piece*: build one square, drop a *stone* next to the rival, or step back. Paths carry a number changed by operator squares; the gate needs exactly its target.
 - **Encounter / round / form**: in Math Monster, one spirit is fought over 5 rounds, one form per round. Round 5 is the boss (the shard), and beating it purifies the spirit.
+- **World map** (Math Monster Adventure): levels 1–5 are World 1 (Nyx), 6–10 World 2 (Myx), 11+ Endless; each level is a node, opened by clearing the one before (world gates are always open). Rules in `worldMap.ts`, drawn with `core/ui/PathMap`.
 
 ## Rules and invariants
 
@@ -105,7 +110,8 @@ docs/
 - **Add a setting to a module:** add a `SettingDef` to the module's `settings` and read it from `props.settings`. The shell renders and persists it.
 - **Add a telemetry event:** emit it from the engine, then document it in TELEMETRY.md.
 - **Add a spirit or tweak creature art:** follow [docs/lore/WORLD.md#adding-a-spirit](docs/lore/WORLD.md#adding-a-spirit), then check every form at `/?gallery`.
-- **Add a module panel** (collection, progress…): set `GameModule.Hub`. It renders on the module screen.
+- **Add a module page** (collection, progress…): add an `extras` entry (settings bar), a mode `Panel`, or a sub-page of a mode (`pages` + `openPage`); for a one-page module, set `GameModule.Hub`.
+- **Show progress as a map of levels:** use `core/ui/PathMap` (regions of nodes, a details panel, A to play).
 - **Debug a user's problem:** ask for Data → Diagnostics → "Download logs", or open the app with `?log=debug`.
 
 ## Patch notes and versions
@@ -136,4 +142,4 @@ When you change behaviour, update the doc that describes it **in the same change
 | commands or setup | this file + `README.md` |
 | a dependency, tool or browser API | `README.md` → "Tools and technologies" (the README has no roadmap/"Next" section) |
 
-Diagrams are Mermaid in Markdown, so edit them as text. GitHub and VS Code (with a Mermaid extension) render them, and so does the app's **🗺️ Game map** (it reads `docs/ARCHITECTURE.md`, `docs/FORGE.md`, `docs/MENTAL-MATH.md` and `docs/modules/*.md`). A diagram that doesn't parse shows an error box there, so check new ones in the Game map.
+Diagrams are Mermaid in Markdown, so edit them as text. Edit a diagram in its source doc, then run `npm run diagrams`: it draws only new or changed diagrams into `docs/diagrams/*.svg` (each stamped with a hash of its source), refreshes `docs/DIAGRAMS.md` and the README section, and lists any diagram that doesn't parse. `npm test` fails until you do. `--force` redraws everything (e.g. after changing the look in the script).

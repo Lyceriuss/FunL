@@ -1,6 +1,6 @@
 import { getProgress, saveProgress } from '../../core/telemetry/storage';
 import { MASTERY_MAX } from './companion';
-import { CREATURES, type Creature } from './creatures';
+import { CREATURES } from './creatures';
 
 /**
  * Per-player creature progress: who has been met, how far each has been
@@ -26,6 +26,8 @@ export interface SpiritProgress {
    * `forgeTier` is the v0.12 adaptive tier, read once by forgeUnlockedOf.
    */
   classroom?: { unlocked: number; forgeUnlocked?: number; forgeTier?: number };
+  /** Adventure world map: the furthest level (map node) cleared, 0 = none yet. */
+  adventure?: { cleared: number };
 }
 
 const MODULE_ID = 'math-monster';
@@ -48,13 +50,18 @@ export function isPurified(p: SpiritProgress, id: string): boolean {
 }
 
 /**
- * Order creatures are met in: ones not yet purified first (in roster order),
- * then purified ones again so the journey never runs dry.
+ * Furthest Adventure level cleared. Saves from before the world map (v0.15)
+ * have none: each purified spirit counts as one cleared world (5 levels).
  */
-export function encounterOrder(p: SpiritProgress): Creature[] {
-  const fresh = CREATURES.filter((c) => !isPurified(p, c.id));
-  const done = CREATURES.filter((c) => isPurified(p, c.id));
-  return [...fresh, ...done];
+export function adventureCleared(p: SpiritProgress, roundsPerWorld = 5): number {
+  const purified = CREATURES.filter((c) => isPurified(p, c.id)).length;
+  return Math.max(p.adventure?.cleared ?? 0, purified * roundsPerWorld);
+}
+
+/** A level's monster was defeated in Adventure: the map node is cleared. */
+export function recordCleared(p: SpiritProgress, level: number): SpiritProgress {
+  if (level <= (p.adventure?.cleared ?? 0)) return p;
+  return { ...p, adventure: { cleared: level } };
 }
 
 export function recordForm(p: SpiritProgress, id: string, form: number): SpiritProgress {

@@ -1,9 +1,0 @@
-/* UML / flow diagrams drawn with Mermaid (core/ui/uml). */
-.uml {
-  position: relative; overflow: auto; max-height: calc(100dvh - 260px); min-height: 240px;
-  padding: 14px; border-radius: 16px; background: #0b0820; border: 1px solid rgb(255 255 255 / 0.12);
-}
-.uml__canvas { min-width: 100%; transition: width 0.15s ease-out; }
-.uml__canvas svg { display: block; width: 100% !important; max-width: none !important; height: auto; }
-.uml__loading { margin: 0; opacity: 0.7; }
-.uml--error pre { white-space: pre-wrap; font-size: 12px; opacity: 0.8; }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { CREATURES, glowColor, lerpHsl } from '../creatures';
-import { classroomUnlocked, emptyProgress, encounterOrder, masteryOf, purify, recordForm, recordPractice, recordStage, setCompanion } from '../spirits';
+import { classroomUnlocked, emptyProgress, masteryOf, purify, recordForm, recordPractice, recordStage, setCompanion } from '../spirits';
 
 describe('creature roster', () => {
   it('every creature has 5 forms, a story and unique ids', () => {
@@ -19,15 +19,6 @@ describe('creature roster', () => {
 });
 
 describe('spirit progress', () => {
-  it('meets unpurified creatures first, then repeats purified ones', () => {
-    let p = emptyProgress();
-    expect(encounterOrder(p)[0].id).toBe(CREATURES[0].id);
-    p = purify(p, CREATURES[0].id, 1);
-    const order = encounterOrder(p).map((c) => c.id);
-    expect(order[0]).toBe(CREATURES[1].id);
-    expect(order.at(-1)).toBe(CREATURES[0].id);
-  });
-
   it('tracks the best form reached and keeps the first purification time', () => {
     let p = recordForm(emptyProgress(), 'nyx', 2);
     p = recordForm(p, 'nyx', 1);

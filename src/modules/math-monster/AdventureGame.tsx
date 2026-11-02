@@ -12,7 +12,8 @@ import { AnswerDock } from './Dock';
 import { BOSS_DEFEAT_MS, type Effect, type EngineEvent, type EngineState } from './engine';
 import { createEngine, sessionSeed, type MathOptions } from './options';
 import { PauseMenu } from '../../core/ui/PauseMenu';
-import { encounterOrder, loadSpirits, purify, recordForm, saveSpirits, setCompanion, emptyProgress, type SpiritProgress } from './spirits';
+import { loadSpirits, purify, recordCleared, recordForm, saveSpirits, setCompanion, emptyProgress, type SpiritProgress } from './spirits';
+import { mapLabel, worldSpirit } from './worldMap';
 import { summarize } from './summary';
 import { useMathSession } from './useMathSession';
 import './mathMonster.css';
@@ -53,9 +54,6 @@ export function AdventureGame({ profile, telemetry, options, settings, onFinish 
   // ----- spirits: who we meet, purification, companion -----
   const [spirits, setSpirits] = useState<SpiritProgress | null>(null);
   const spiritsRef = useRef<SpiritProgress | null>(null);
-  const orderRef = useRef<Creature[]>([]);
-  /** Same as orderRef, as state for rendering. */
-  const [order, setOrder] = useState<Creature[]>([]);
   /** The form that was just K.O.'d, so its transformation can play out. */
   const [defeatedShown, setDefeatedShown] = useState<Shown | null>(null);
   const [befriend, setBefriend] = useState<Creature | null>(null);
@@ -69,9 +67,8 @@ export function AdventureGame({ profile, telemetry, options, settings, onFinish 
     saveSpirits(profile.id, next).catch((err: unknown) => log.error('could not save spirit progress', err));
   };
 
-  /** Creature for an encounter number (event handlers pass the ref, render passes state). */
-  const creatureFor = (encounter: number, list: Creature[] = orderRef.current): Creature =>
-    list[encounter % list.length];
+  /** Creature for an encounter: each world of the map has its own spirit (worldMap.ts). */
+  const creatureFor = (encounter: number): Creature => worldSpirit(encounter);
 
   useEffect(() => {
     let cancelled = false;
@@ -83,8 +80,6 @@ export function AdventureGame({ profile, telemetry, options, settings, onFinish 
       .then((p) => {
         if (cancelled) return;
         spiritsRef.current = p;
-        orderRef.current = encounterOrder(p);
-        setOrder(orderRef.current);
         setSpirits(p);
       });
     return () => {
@@ -116,6 +111,8 @@ export function AdventureGame({ profile, telemetry, options, settings, onFinish 
       telemetry.log('math.spirit.encounter', { creatureId: c.id, form: round - 1, round, boss, encounter });
       updateSpirits((p) => recordForm(p, c.id, round - 1));
     } else if (e.type === 'monster.defeated') {
+      // The world map node is cleared (worksheets are not on the map).
+      if (options.mode === 'adventure') updateSpirits((p) => recordCleared(p, e.level));
       const c = creatureFor(e.encounter);
       setDefeatedShown({ creature: c, form: e.round - 1, boss: e.boss });
       if (e.boss) {
@@ -165,7 +162,7 @@ export function AdventureGame({ profile, telemetry, options, settings, onFinish 
 
   // Which creature/form is on stage right now.
   const current: Shown | null = ready
-    ? { creature: creatureFor(state.encounter, order), form: state.round - 1, boss: state.boss }
+    ? { creature: creatureFor(state.encounter), form: state.round - 1, boss: state.boss }
     : null;
   const onStage: Shown | null = purifying || koBanner ? defeatedShown : current;
   const transforming = !purifying && !!defeatedShown && sinceDefeat >= KO_BANNER_MS && sinceDefeat < KO_BANNER_MS + 600;
@@ -208,7 +205,7 @@ export function AdventureGame({ profile, telemetry, options, settings, onFinish 
           ))}
         </div>
         <div className="mm-stage">
-          <span className="mm-stage__num">STAGE {state.level}</span>
+          <span className="mm-stage__num">{options.mode === 'adventure' ? `WORLD ${mapLabel(state.level)}` : `STAGE ${state.level}`}</span>
           <span className="mm-stage__name">{state.levelConfig.name}</span>
         </div>
         <div className="mm-score">

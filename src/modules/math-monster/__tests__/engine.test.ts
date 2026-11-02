@@ -243,6 +243,22 @@ describe('encounters', () => {
     expect(starts[4].hitsToDefeat).toBe(Math.ceil(levelAt(DEFAULT_LEVELS, 7).hitsToDefeat * 1.3));
   });
 
+  it('with an encounter origin, encounters are fixed worlds wherever the run starts', () => {
+    const engine = new MathMonsterEngine({ levels: DEFAULT_LEVELS, source: new GeneratedSource(5), startLevel: 8, encounterOrigin: 1 });
+    const starts: { level: number; round: number; boss: boolean; encounter: number }[] = [];
+    engine.on((e) => e.type === 'level.start' && starts.push(e));
+    engine.start();
+    for (let r = 0; r < 3; r++) clearRound(engine);
+
+    // Level 8 is world 2 (encounter 1), round 3; the boss is level 10; level 11 starts world 3.
+    expect(starts.map((s) => [s.level, s.encounter, s.round, s.boss])).toEqual([
+      [8, 1, 3, false],
+      [9, 1, 4, false],
+      [10, 1, 5, true],
+      [11, 2, 1, false],
+    ]);
+  });
+
   it('boss rounds have more HP but the same lanes', () => {
     const engine = new MathMonsterEngine({
       levels: DEFAULT_LEVELS,

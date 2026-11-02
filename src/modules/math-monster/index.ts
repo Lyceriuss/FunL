@@ -3,7 +3,8 @@ import { mathControls } from './controls';
 import { MathMonsterGame } from './MathMonsterGame';
 import type { MathOptions } from './options';
 import { parseMathPack } from '../../core/math/schema';
-import { MathHub } from './MathHub';
+import { JournalPanel, PracticePanel, ProgressPanel } from './MathHub';
+import { AdventureMap } from './AdventureMap';
 
 export const mathMonsterModule: GameModule<MathOptions> = {
   id: 'math-monster',
@@ -12,7 +13,6 @@ export const mathMonsterModule: GameModule<MathOptions> = {
   description: 'Free the moon-fox brothers in Adventure, then practise maths together in class.',
   icon: '👾',
   controls: mathControls,
-  presetsTitle: 'Adventure',
   presets: [
     { id: 'start', label: 'From the start', description: 'Small sums, getting harder', options: { mode: 'adventure', startLevel: 1 } },
     { id: 'plus-minus', label: 'Plus & minus to 20', options: { mode: 'adventure', startLevel: 5 } },
@@ -72,7 +72,29 @@ export const mathMonsterModule: GameModule<MathOptions> = {
       options: { mode: 'pack', pack },
     };
   },
-  Hub: MathHub,
+  modes: [
+    {
+      id: 'adventure',
+      title: 'Adventure',
+      icon: '⚔️',
+      description: 'Fight the corrupted spirits with fast maths, forge seals in the boss round, and befriend them. Pick a spot on the map to play from there.',
+      Panel: AdventureMap,
+      settings: ['speed', 'forgeTime', 'lanes', 'inputHelp'],
+      settingsTitle: 'Battle settings',
+    },
+    {
+      id: 'practice',
+      title: 'Practice',
+      icon: '📚',
+      description: 'Practise at your own pace. Pick what to practise.',
+      Panel: PracticePanel,
+      pages: { classroom: 'Classroom', forge: 'Forge workshop' },
+    },
+  ],
+  extras: [
+    { id: 'journal', label: 'Journal', icon: '📖', Panel: JournalPanel },
+    { id: 'progress', label: 'Progress', icon: '⚙️', Panel: ProgressPanel },
+  ],
   Component: MathMonsterGame,
 };
 

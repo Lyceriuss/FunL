@@ -155,3 +155,23 @@ Format: **ID · date · title**, then Decision / Why / Trade-offs.
 - Why: the user wants to understand the game's structure from inside the app. Reading the docs keeps one source of truth, so the map can't drift from the documentation.
 - Trade-offs: Mermaid is large (≈1.5 MB of lazily loaded chunks) and brings KaTeX, which `npm audit` flags as low severity; only our own diagrams are rendered, with Mermaid's strict security level.
 
+**D32 · 2026-11-02 · The UML viewer is a dev tool, not part of the game (replaces D31)**
+- Decision: the diagram browser is a standalone Vite page in `tools/uml/` (`npm run uml`, port 5174) that renders every Mermaid block in `docs/`. The in-game Game map from v0.13 is removed; Mermaid is a dev dependency only.
+- Why: the user wanted a tool for people working on the game, outside the game itself. Keeping it out of the app also keeps Mermaid (and its KaTeX audit warning) out of the game bundle.
+- Trade-offs: children and parents don't see the diagrams; the viewer needs the repo and `npm install`.
+
+**D33 · 2026-11-02 · Module screens: mode cards + a settings bar**
+- Decision: the module contract gains optional `modes` and `extras`. Math Monster opens on two big cards (Adventure, Practice); each mode shows only its own settings and starting points; journal, progress, worksheets and controls sit in a settings bar. B goes up one page; the page is remembered per tab so "Done" after a game returns to it.
+- Why: the single long page (settings, presets, classroom, forge, journal, progress, worksheets, controls) was cluttered, especially with a controller.
+- Trade-offs: one more press to start a game. Settings shared by several modes (e.g. Input time help) appear only where they matter most (Adventure) but still apply everywhere.
+
+**D34 · 2026-11-02 · Diagrams are collected into the README and docs/DIAGRAMS.md (replaces D32)**
+- Decision: no diagram viewer at all, in or outside the game. `scripts/diagrams.mjs` (`npm run diagrams`) draws every Mermaid block in `docs/` as an SVG in `docs/diagrams/` (Mermaid in headless Edge/Chrome via `playwright-core`, plain SVG text, dark background) and writes `docs/DIAGRAMS.md` (grouped by doc, contents list, kind labels, link back to the source heading) plus the big-picture image and a list of all diagrams in the README between markers.
+- Why: the user wanted the diagrams in or close to the README, in the viewer's grouped format, not as something to load or run. Images, unlike Mermaid blocks, show in VS Code's built-in preview without an extension (and on GitHub).
+- Trade-offs: generated SVGs are committed (~0.8 MB) and must be regenerated after a diagram edit; each SVG carries a hash of its source, so a unit test catches stale images without a browser. Drawing needs Edge or Chrome installed. Not using `@mermaid-js/mermaid-cli`, which downloads its own Chromium.
+
+**D35 · 2026-11-02 · Adventure world map, fixed worlds, Practice blocks**
+- Decision: Adventure opens on a node map (a classic console world map in layout, not art): World 1 = levels 1–5 with Nyx, World 2 = 6–10 with Myx, then Endless. Nodes open one by one as levels are cleared (`adventure.cleared` in progress), but every world's first node is always open. Encounters are aligned to worlds (`encounterOrigin: 1`), so a world always has the same spirit and its boss on round 5. Practice opens on two blocks (Classroom, Forge workshop) that each open their own page with a stage/level map. The map component is shared (`core/ui/PathMap`), and mode panels gained sub-pages.
+- Why: players couldn't tell where they were in the adventure, and the Practice page mixed two ladders with chips and long texts. A map shows progress and the next step at a glance, and the D-pad moves along it naturally.
+- Trade-offs: levels inside a world are now locked until reached (before, presets could start at levels 1, 5, 6 or 8); world gates keep skipping ahead possible. Old saves get world credit only for purified spirits. In Adventure, `encounter` in telemetry means the world, not the count since the session's start. The details panel's ▶ Play is for touch and mouse only (controller players press A on the node), so it is not `data-focusable`.
+

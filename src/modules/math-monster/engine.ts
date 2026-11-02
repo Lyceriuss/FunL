@@ -72,6 +72,12 @@ export interface EngineConfig {
   /** Rounds per creature encounter; the last one is the boss round. Default 5. */
   roundsPerEncounter?: number;
   /**
+   * Level where encounter 0 starts (default: the start level). Adventure uses 1,
+   * so encounters are fixed worlds (levels 1–5, 6–10…) wherever you start:
+   * starting on level 8 is round 3 of encounter 1.
+   */
+  encounterOrigin?: number;
+  /**
    * Boss rounds become Forge rounds: build the seal number from pieces
    * (order of operations) before the spirit's attack charges. Off when omitted.
    */
@@ -164,7 +170,7 @@ export interface EngineState {
   time: number;
   level: number;
   levelConfig: LevelConfig;
-  /** 0-based creature encounter number in this session. */
+  /** 0-based creature encounter, counted from the encounter origin (Adventure: the world, 0 = levels 1–5). */
   encounter: number;
   /** 1-based round within the encounter. */
   round: number;
@@ -349,7 +355,7 @@ export class MathMonsterEngine {
   private roundsPerEncounter: number;
   private forgeCfg: ForgeConfig | null;
   private forgeRng: Rng;
-  private startLevelNum: number;
+  private encounterOrigin: number;
   private betweenUntil = 0;
   private nextSpawnAt = 0;
   private hitsThisLevel = 0;
@@ -379,7 +385,7 @@ export class MathMonsterEngine {
     this.forgeCfg = cfg.forge ?? null;
     this.forgeRng = createRng(cfg.forge?.seed ?? 1);
     const level = cfg.startLevel ?? 1;
-    this.startLevelNum = level;
+    this.encounterOrigin = Math.min(level, cfg.encounterOrigin ?? level);
     const pos = this.positionOf(level);
     const levelConfig = this.configFor(level, pos.boss);
     const lives = cfg.lives ?? DEFAULT_LIVES;
@@ -663,9 +669,9 @@ export class MathMonsterEngine {
     return Math.max(1, Math.min(4, n));
   }
 
-  /** Encounter/round for a level, counted from the level the session started on. */
+  /** Encounter/round for a level, counted from the encounter origin (default: the start level). */
   private positionOf(level: number): { encounter: number; round: number; boss: boolean } {
-    const i = level - this.startLevelNum;
+    const i = level - this.encounterOrigin;
     const round = (i % this.roundsPerEncounter) + 1;
     return { encounter: Math.floor(i / this.roundsPerEncounter), round, boss: round === this.roundsPerEncounter };
   }

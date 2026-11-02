@@ -2,6 +2,14 @@
 
 Mental arithmetic as an anime battle. Corrupted **spirits** hurl equations at the hero, and the child types the answer before they land. Each spirit is fought over a 5-round **encounter**: every round it takes a less menacing, cuter form. In the final boss round the child **forges seals** (order-of-operations puzzles, see [FORGE.md](../FORGE.md)) to break its last Static shard, the spirit is **purified**, and it can be **befriended** as a companion. Lore: [docs/lore/WORLD.md](../lore/WORLD.md).
 
+## Module screen
+
+Two big cards (`modes` in `index.ts`):
+- **⚔️ Adventure** (`AdventureMap`): the **world map**, then "Battle settings" (Speed, Forge time, Equations at once, Input time help). One row per world: World 1 = levels 1–5 (Nyx), World 2 = 6–10 (Myx), then ∞ Endless (11+). Nodes: done ✓ (level ≤ `adventure.cleared`), next "YOU" (cleared + 1), open (the first node of each world, always), locked 🔒. Endless opens once level 10 is cleared. Moving onto a node shows its details (topic, the spirit's form or the boss's Forge level, lanes); A / a second tap / ▶ Play starts `{ mode: 'adventure', startLevel }`. Rules: `worldMap.ts` (pure, tested); layout: `core/ui/PathMap`.
+- **📚 Practice** (`PracticePanel`): two blocks, **Classroom** and **Forge workshop**, each with its next stage/level and a progress bar. Each opens a sub-page (`pages`: `practice/classroom`, `practice/forge`): the companion and a PathMap of the 18 classroom stages (rows of three topics; ⚡ = quick pace) plus ∞ Beyond, or a PathMap of the 6 Forge levels.
+
+ Settings bar (`extras`): 📖 Journal (`JournalPanel`), ⚙️ Progress (`ProgressPanel`, reset), plus the shell's 📝 Worksheets and 🎮 Controls. The classroom's pace comes only from its stage; the Speed setting is Adventure's.
+
 ## Files
 
 | File | Role |
@@ -20,7 +28,10 @@ Mental arithmetic as an anime battle. Corrupted **spirits** hurl equations at th
 | `PracticeGame.tsx` + `practice.css` | Practice: stage flow (`PracticeGame`), one lesson with two columns/engines (`ClassroomStage`), result panel (`StageEnd`) |
 | `classroom.ts` | Classroom stage ladder: topic/pace/lanes/speed per stage, pass threshold |
 | `companion.ts` | **Companion skill model** (pure): difficulty, think time, accuracy; reasoning (right or with a slip) comes from `core/mental-math` |
-| `MathHub.tsx` | Module `Hub`: practice classroom section (empty hall without a companion) + Spirit Journal + Reset progress; owns spirit progress loading |
+| `AdventureMap.tsx` | Adventure mode panel: the world map (PathMap) with world spirits and node details |
+| `worldMap.ts` | **World map rules** (pure): worlds of 5 levels, world → spirit, labels ("1-3", "∞ 2"), node state, current level |
+| `MathHub.tsx` | Practice panel (overview blocks → Classroom page with the stage map, Forge page with the level map; empty hall without a companion), Journal and Progress (reset) panels |
+| `useSpiritProgress.ts` | Loads (when idle), changes and resets the player's spirit progress for the panels |
 | `Dock.tsx` | `AnswerDock`: the shared `core/ui/number-entry/NumberDock` (keypad for touch, radial dial for controllers, compact for keyboard) fed from the engine. Pause menu: `core/ui/PauseMenu` |
 | `creatures.ts` | **Spirit data**: names, 5 forms (title + banner line), colours, personality, story. The lore source of truth |
 | `spirits.ts` | Per-player spirit progress (met / best form / purified / companion): pure functions + load/save via core `progress` store |
@@ -90,15 +101,16 @@ stateDiagram-v2
 ```
 
 - **Engine** (`engine.ts`) knows only `encounter` / `round` / `boss`, counted from the session's start level (`roundsPerEncounter`, default 5). It applies the boss modifiers. It knows nothing about which creature is shown.
-- **View** (`AdventureGame.tsx`) maps `encounter` → creature using `encounterOrder(progress)`: unpurified spirits first, then rematches. `round − 1` is the form.
+- **Worlds:** Adventure passes `encounterOrigin: 1`, so encounters are fixed worlds of the map (levels 1–5 = encounter 0, 6–10 = 1, …) wherever the run starts: starting on level 8 is round 3 of encounter 1. Other modes count from their start level.
+- **View** (`AdventureGame.tsx`) maps `encounter` → creature with `worldSpirit(encounter)` (the roster in order, then rematches). `round − 1` is the form. Each K.O. in Adventure saves `recordCleared(level)` (the map node).
 - Because the engine schedules the next round at K.O. time, the view keeps the *defeated* form on stage for the K.O. (0.8 s) and then flashes in the new form. For a boss, it keeps the purified spirit on stage until the befriend dialog.
 - An encounter is recorded (`math.spirit.encounter`, `recordForm`) on the **first equation** of each round, not at `level.start`.
 - **Difficulty is independent of creatures.** Stage content still follows `DEFAULT_LEVELS` by level number. Encounters are just layered on top in groups of 5.
-- **Progress** (`spirits.ts`, stored in the core `progress` store under `math-monster:<profileId>`): `{ version: 1, spirits: { [id]: { encountered, bestForm, purifiedAt? } }, companion }`. Only purified spirits can be companions.
+- **Progress** (`spirits.ts`, stored in the core `progress` store under `math-monster:<profileId>`): `{ version: 1, spirits: { [id]: { encountered, bestForm, purifiedAt?, mastery? } }, companion, classroom?, adventure?: { cleared } }`. Only purified spirits can be companions. `adventureCleared` reads saves from before the map as 5 cleared levels per purified spirit.
 
 ## Practice mode (classroom)
 
-Unlocked once a spirit is befriended (the current companion joins you). Started from the hub with `{ mode: 'practice', stage, companionId }`.
+Unlocked once a spirit is befriended (the current companion joins you). Started from Practice → Classroom (a stage node) with `{ mode: 'practice', stage, companionId }`.
 
 ```mermaid
 stateDiagram-v2

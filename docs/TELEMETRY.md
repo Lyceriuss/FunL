@@ -43,7 +43,7 @@ Times are **engine ms** (they stop while paused). `key` is a stable fact id such
 
 | kind | data |
 |---|---|
-| `math.level.start` | `level`, `name`, `hitsToDefeat`, `lanes`, `travelMs`, `encounter` (0-based), `round` (1–5), `boss`. Emitted when the round is *scheduled* (at the previous K.O.), before its intro |
+| `math.level.start` | `level`, `name`, `hitsToDefeat`, `lanes`, `travelMs`, `encounter` (0-based; in Adventure the world of the map, 0 = levels 1–5, since v0.15), `round` (1–5), `boss`. Emitted when the round is *scheduled* (at the previous K.O.), before its intro |
 | `math.problem.spawn` | `id` (equation instance, unique per session), `key`, `text`, `answer`, `level`, `travelMs` (includes the allowance), `allowanceMs` (extra time for the player's input pace), `lane`, `concurrent` |
 | `math.input.start` | `at`: the player started entering an answer (first stick movement, controller button, key or tap). Input time is measured from here |
 | `math.input.digit` | `digit`, `value` (input after the keypress) |
@@ -106,7 +106,7 @@ Practice sessions add `summary.practice`: `{ companionId, stagesPlayed, stagesCl
 
 ### Math Monster progress record (`progress` store, key `math-monster:<profileId>`)
 
-`{ version: 1, spirits: { [creatureId]: { encountered, bestForm, purifiedAt?, mastery? } }, companion: creatureId | null, classroom?: { unlocked, forgeTier? } }`. `classroom.forgeUnlocked` is the highest Forge workshop level unlocked (1–6). (`classroom.forgeTier` from v0.12 is read once and mapped: 1→1, 2→2, 3→4, 4→5.) `classroom.unlocked` is the highest practice stage the player may start. `mastery` is the number of completed practice lessons (0–5).
+`{ version: 1, spirits: { [creatureId]: { encountered, bestForm, purifiedAt?, mastery? } }, companion: creatureId | null, classroom?: { unlocked, forgeTier? }, adventure?: { cleared } }`. `adventure.cleared` is the furthest Adventure level (world map node) cleared (v0.15; older saves: 5 per purified spirit). `classroom.forgeUnlocked` is the highest Forge workshop level unlocked (1–6). (`classroom.forgeTier` from v0.12 is read once and mapped: 1→1, 2→2, 3→4, 4→5.) `classroom.unlocked` is the highest practice stage the player may start. `mastery` is the number of completed practice lessons (0–5).
 
 ## Maze Duel (`duel.*`)
 

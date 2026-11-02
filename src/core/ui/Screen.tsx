@@ -24,12 +24,34 @@ export function Screen({
   // Before paint, so the very first controller press already has a target.
   useLayoutEffect(() => {
     const root = ref.current;
-    if (!root || root.contains(document.activeElement)) return;
-    const first =
-      root.querySelector<HTMLElement>('[data-autofocus]') ??
-      root.querySelector<HTMLElement>('.screen__body [data-focusable]') ??
-      root.querySelector<HTMLElement>('[data-focusable]');
-    first?.focus({ preventScroll: true });
+    if (!root) return;
+    let fallback = root.contains(document.activeElement) ? (document.activeElement as HTMLElement) : null;
+    if (!fallback) {
+      fallback =
+        root.querySelector<HTMLElement>('[data-autofocus]') ??
+        root.querySelector<HTMLElement>('.screen__body [data-focusable]') ??
+        root.querySelector<HTMLElement>('[data-focusable]');
+      fallback?.focus({ preventScroll: true });
+    }
+    if (fallback?.hasAttribute('data-autofocus')) return;
+
+    // Content that loads a moment later (e.g. a map from saved progress) may
+    // bring its own autofocus target: move there, unless the player has
+    // already moved focus themselves.
+    const observer = new MutationObserver(() => {
+      if (document.activeElement !== fallback && root.contains(document.activeElement)) return observer.disconnect();
+      const late = root.querySelector<HTMLElement>('[data-autofocus]');
+      if (late) {
+        late.focus({ preventScroll: true });
+        observer.disconnect();
+      }
+    });
+    observer.observe(root, { childList: true, subtree: true });
+    const stop = setTimeout(() => observer.disconnect(), 3000);
+    return () => {
+      observer.disconnect();
+      clearTimeout(stop);
+    };
   }, []);
 
   return (

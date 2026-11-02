@@ -44,14 +44,14 @@ export function createEngine(options: MathOptions, settings: Settings, seed: num
         lanes,
       });
     case 'practice': {
-      // The stage decides topic, pace and lanes; the speed setting still scales it.
+      // The stage decides topic, pace and lanes (the Speed setting is for Adventure).
       const stage = stageConfig(options.stage);
       return new MathMonsterEngine({
         ...extras,
         levels: [{ ...stage.levelConfig, hitsToDefeat: Number.MAX_SAFE_INTEGER }],
         source: new LimitedSource(new GeneratedSource(seed), stage.length),
         speedUp: 1, // steady pace within a stage: difficulty rises between stages
-        speedMultiplier: speedMultiplier * stage.speedFactor,
+        speedMultiplier: stage.speedFactor,
         lanes: stage.lanes,
         unlimitedLives: true,
         wrongPenalty: 0.05,
@@ -66,6 +66,7 @@ export function createEngine(options: MathOptions, settings: Settings, seed: num
         levels: DEFAULT_LEVELS,
         source: new GeneratedSource(seed),
         startLevel: options.startLevel,
+        encounterOrigin: 1, // fixed worlds: the world map's levels 1–5, 6–10…
         speedMultiplier,
         lanes,
         // Boss rounds: forge the seal (order of operations), see core/math/forge.

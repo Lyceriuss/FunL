@@ -10,6 +10,74 @@ Sections, used when relevant: ✨ New · 🎮 Gameplay · ⚖️ Balance · 🎨
 
 ---
 
+## v0.15.0 · "World Map" (2026-11-02)
+
+You can now see where you are in the adventure, and Practice is tidier.
+
+✨ **New**
+- **Adventure world map.** The Adventure page opens on a map of nodes on a winding path, like a classic console world map:
+  - **World 1 · Nyx** (1-1 … 1-4, then the 👑 boss) and **World 2 · Myx**, then **∞ Endless**.
+  - Each world shows its spirit (a dark silhouette until you meet it; "Purified" once freed).
+  - Cleared nodes get a ✓, the next one is marked **YOU**, and locked ones show 🔒.
+  - Move onto a node to see what it is: topic, the spirit's form, how many equations at once, the boss's forge level. Press A (or tap it again, or ▶ Play) to play from there.
+- Nodes open one by one as you clear them. The first node of every world is always open, so an older child can skip ahead, as with the old "where to start" choices. Endless opens after World 2.
+
+🎮 **Gameplay**
+- **Each world has its own spirit:** World 1 is always Nyx and World 2 is always Myx, wherever you start. Starting on 2-3 meets Myx in round 3; the boss is 2-5. (Before, encounters counted from wherever you started, so the boss could fall on any level.)
+- The battle shows **WORLD 1-3** instead of STAGE 3.
+
+🎨 **Art & UI**
+- **Practice opens on two blocks: Classroom and Forge workshop.** Each shows how far you are (next stage or level, a progress bar). Pick one to open its page; B goes back to the blocks.
+  - **Classroom** page: your companion, then a map of the 18 stages (rows of three topics, ⚡ marks the quick-pace stages) and ∞ Beyond.
+  - **Forge workshop** page: a map of the 6 levels.
+- The Adventure settings sit under the map as "Battle settings".
+- On a page that loads a moment later (like the map), the controller's focus now jumps to its main item, e.g. your node on the map.
+
+📊 **Data & telemetry**
+- Progress gains `adventure.cleared` (the furthest level cleared). Older saves count each purified spirit as one cleared world. It's not a database schema change.
+- In Adventure, `encounter` in `math.level.start`, `math.monster.defeated` and `math.spirit.*` is now the world (0 = levels 1–5), not "encounters since this session's start".
+
+🛠️ **Dev & tooling**
+- New `core/ui/PathMap`: a node map any module can use (regions, snaking path, details panel, A to play, tap to select).
+- Module mode panels can have **sub-pages**: `ModuleMode.pages` plus `PanelProps.page` and `openPage`. The view is `mode/page` and B goes up one level. Modes also take `settingsTitle`; a mode's settings now show under its panel.
+- Engine: `encounterOrigin` option (Adventure passes 1). Math Monster: `worldMap.ts` (pure map rules), `AdventureMap.tsx`, `useSpiritProgress.ts`; `encounterOrder` was removed.
+- `Screen`: a late `data-autofocus` (content loaded after mount) takes focus if the player hasn't moved yet.
+
+---
+
+## v0.14.1 · "Tidy Menus" (2026-11-02)
+
+🛠️ **Dev & tooling**
+- **The diagrams now live next to the README instead of in a separate tool.** The README has a new "How it fits together" section with the big-picture diagram and a list of every diagram, and [docs/DIAGRAMS.md](docs/DIAGRAMS.md) shows all of them on one page, grouped by doc with a contents list.
+- **One command draws them:** `npm run diagrams` (`scripts/diagrams.mjs`) turns every Mermaid block in `docs/` into an SVG image in `docs/diagrams/` (dark panels like the old viewer) and writes those two pages. Images show in any Markdown preview and on GitHub, with no extension. It redraws only new or changed diagrams and names any diagram that doesn't parse.
+- Diagrams are still edited as text in their source docs. A test fails while an image or page is stale.
+- Removed the `npm run uml` viewer (`tools/uml/`). Mermaid and `playwright-core` (drives the installed Edge/Chrome, downloads no browser) are dev dependencies used only by `npm run diagrams`.
+
+---
+
+## v0.14.0 · "Tidy Menus" (2026-11-02)
+
+The Math Monster screen is much calmer: two big choices, and everything else tucked into a small bar.
+
+🎨 **Art & UI**
+- **Math Monster opens on two big cards: ⚔️ Adventure and 📚 Practice.**
+  - **Adventure** shows its own settings (Speed, Forge time, Equations at once, Input time help) and where to start.
+  - **Practice** shows the classroom and the Forge workshop.
+- **Settings bar** at the top: 📖 Journal (Spirit Journal), ⚙️ Progress (reset), 📝 Worksheets, 🎮 Controls.
+- B / Back goes up one page (page → Math Monster → home). After a game, "Done" brings you back to the page you came from.
+- Everything works with only a controller: the first card is focused on every page, and every button is reachable with the D-pad.
+
+⚖️ **Balance**
+- The classroom's pace now comes only from its stage (calm or quick). The Speed setting belongs to Adventure.
+
+🛠️ **Dev & tooling**
+- **The UML viewer is now a standalone dev tool, not part of the game.** Run `npm run uml` (opens on port 5174): every Mermaid diagram in `docs/`, zoomable, reloading while you edit. The in-game 🗺️ Game map (v0.13) is removed, and Mermaid is now a dev dependency only (the game bundle never includes it).
+- Module contract: optional `modes` (top-level choices with their own settings, presets and panel) and `extras` (settings-bar pages); the shell adds Worksheets and Controls to the bar. Without `modes`, a module's screen is one page as before (Maze Duel). `PanelProps` type for module panels.
+- Math Monster: `MathHub` split into `PracticePanel`, `JournalPanel`, `ProgressPanel` (shared `useSpiritProgress`).
+- "The game at a glance" diagram updated for the new menu.
+
+---
+
 ## v0.13.0 · "Workshop & Map" (2026-11-02)
 
 The Forge gets its own place to practise, with levels to unlock, a timer where you're working, and a new map that shows how the whole game fits together.
