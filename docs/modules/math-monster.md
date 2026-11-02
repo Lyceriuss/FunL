@@ -4,9 +4,10 @@ Mental arithmetic as an anime battle. Corrupted **spirits** hurl equations at th
 
 ## Module screen
 
-Two big cards (`modes` in `index.ts`):
+Three big cards (`modes` in `index.ts`):
 - **⚔️ Adventure** (`AdventureMap`): the **world map**, then "Battle settings" (Speed, Forge time, Equations at once, Input time help). One row per world: World 1 = levels 1–5 (Nyx), World 2 = 6–10 (Myx), then ∞ Endless (11+). Nodes: done ✓ (level ≤ `adventure.cleared`), next "YOU" (cleared + 1), open (the first node of each world, always), locked 🔒. Endless opens once level 10 is cleared. Moving onto a node shows its details (topic, the spirit's form or the boss's Forge level, lanes); A / a second tap / ▶ Play starts `{ mode: 'adventure', startLevel }`. Rules: `worldMap.ts` (pure, tested); layout: `core/ui/PathMap`.
 - **📚 Practice** (`PracticePanel`): two blocks, **Classroom** and **Forge workshop**, each with its next stage/level and a progress bar. Each opens a sub-page (`pages`: `practice/classroom`, `practice/forge`): the companion and a PathMap of the 18 classroom stages (rows of three topics; ⚡ = quick pace) plus ∞ Beyond, or a PathMap of the 6 Forge levels.
+- **🎯 Custom** (`CustomPanel` in `ChallengeHub.tsx`): the player's **custom challenges** (see below). The overview shows one card per challenge (stage icons, a progress bar, 🏆 when complete) and "＋ New challenge". Sub-pages: `custom/play` (the open challenge as a PathMap, rows of 5; Edit, Start over, Delete) and `custom/build` (the builder). Which challenge is open is `openId` in the challenge record.
 
  Settings bar (`extras`): 📖 Journal (`JournalPanel`), ⚙️ Progress (`ProgressPanel`, reset), plus the shell's 📝 Worksheets and 🎮 Controls. The classroom's pace comes only from its stage; the Speed setting is Adventure's.
 
@@ -22,10 +23,13 @@ Two big cards (`modes` in `index.ts`):
 | `summary.ts` | Session summary for results and storage (see TELEMETRY.md) |
 | `controls.ts` | `MathAction` + `mathControls` scheme |
 | `MathMonsterGame.tsx` | Module entry: picks the mode component |
-| `options.ts` | `MathOptions` (adventure · pack · practice), `createEngine`, `normalTravelMs` |
+| `options.ts` | `MathOptions` (adventure · pack · practice · forge · challenge), `createEngine`, `challengeFight`/`challengeForm`, `normalTravelMs` |
 | `useMathSession.ts` | Shared hook for all modes: frame loop, input → engine, keypad state, telemetry wiring, finish |
 | `AdventureGame.tsx` | Adventure view: battlefield, encounters, transformations, befriend |
 | `PracticeGame.tsx` + `practice.css` | Practice: stage flow (`PracticeGame`), one lesson with two columns/engines (`ClassroomStage`), result panel (`StageEnd`) |
+| `challenges.ts` | **Custom challenges** (pure): stage kinds, building (add/remove/move/set), playing (`stageState`, `recordStageResult`, `stageCleared`), zod schema, load/save |
+| `ChallengeHub.tsx` | Custom mode panel: challenge cards, `ChallengeMap` (PathMap of the stages), `ChallengeBuilder` |
+| `ChallengeGame.tsx` | Plays one challenge stage through `AdventureGame`, `ForgePracticeGame` or `PracticeGame`, then records the result and logs `math.challenge.stage` |
 | `classroom.ts` | Classroom stage ladder: topic/pace/lanes/speed per stage, pass threshold |
 | `companion.ts` | **Companion skill model** (pure): difficulty, think time, accuracy; reasoning (right or with a slip) comes from `core/mental-math` |
 | `AdventureMap.tsx` | Adventure mode panel: the world map (PathMap) with world spirits and node details |
@@ -107,6 +111,22 @@ stateDiagram-v2
 - An encounter is recorded (`math.spirit.encounter`, `recordForm`) on the **first equation** of each round, not at `level.start`.
 - **Difficulty is independent of creatures.** Stage content still follows `DEFAULT_LEVELS` by level number. Encounters are just layered on top in groups of 5.
 - **Progress** (`spirits.ts`, stored in the core `progress` store under `math-monster:<profileId>`): `{ version: 1, spirits: { [id]: { encountered, bestForm, purifiedAt?, mastery? } }, companion, classroom?, adventure?: { cleared } }`. Only purified spirits can be companions. `adventureCleared` reads saves from before the map as 5 cleared levels per purified spirit.
+
+## Custom challenges (`challenges.ts`)
+
+A grown-up builds a **challenge** of 2–10 stages (`MIN_STAGES`/`MAX_STAGES`) for one player. Each stage is one of:
+
+| Kind | Difficulty | Plays as | Cleared when |
+|---|---|---|---|
+| ⚔️ `battle` | `level` 1–10 (the Adventure topics), `pace` calm/normal/fast (speed 0.7/1/1.4) | `AdventureGame`: one non-boss round (`roundsPerEncounter` ∞, `endLevel`). The spirit and form are the topic's world and round (`challengeForm`) | the fight is won (`reason: 'completed'`) |
+| 👑 `boss` | Forge `tier` 1–6, `pace` (forge time 1.5/1/0.7; speed stays 1) | `AdventureGame`: World 1's boss (level 5) for tiers 1–3, World 2's (level 10) for 4–6, with `forge.tierFor` = the tier, `endLevel` | the shard breaks |
+| 🔨 `forge` | Forge `tier` 1–6 | `ForgePracticeGame` with `oneLesson` | the lesson is passed (6 clean of 8) |
+| 📚 `classroom` | classroom `stage` 1–18 | `PracticeGame` with `oneLesson`. It needs a companion: the builder disables it without one, and the map won't start it | the stage is passed (9 of 12) |
+
+- **Playing:** `cleared` counts the stages cleared in order. Stage `cleared` is "next", earlier ones are done and can be replayed, later ones are locked. Clearing the last stage sets `completedAt` (🏆). "Start over" resets `cleared`. Edits keep `cleared` within the new length.
+- **One lesson:** `oneLesson` turns the lesson-end menu's "next level/stage" into **▶ Continue**, which ends the session. "Try again" stays.
+- **No story side effects:** a challenge fight doesn't record forms, purify, befriend or clear map nodes. Forge and classroom lessons still unlock their own ladders as usual.
+- **Storage:** `{ version: 1, challenges: Challenge[], openId }` under progress key `math-monster.challenges:<profileId>` (separate from `math-monster:`, so "Reset progress" keeps it). Each challenge is validated with `ChallengeSchema` (zod) on load; broken ones are dropped. The same schema is the format a future MCP tool would write.
 
 ## Practice mode (classroom)
 

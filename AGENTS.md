@@ -45,7 +45,7 @@ src/
                            number-entry/ (keypad, radial dial, NumberDock), forge/ (ForgeBoardView, forgeControls),
                            PathMap (world-map style node path), PauseMenu, Hero, ThinkBubble, useFlip, game.css
   modules/
-    math-monster/          Pure engine (incl. Forge boss rounds), modes (Adventure, Practice classroom, Forge practice), spirits, companion skill model. See docs/modules/math-monster.md
+    math-monster/          Pure engine (incl. Forge boss rounds), modes (Adventure, Practice classroom, Forge practice, Custom challenges), spirits, companion skill model. See docs/modules/math-monster.md
     maze-duel/             Race Glitch through a number maze: board generator, DuelEngine, rival planner. See docs/modules/maze-duel.md
   screens/                 Shell screens: Profiles, Home, Module (mode cards, mode pages, settings bar), Results, Data, Sound
   dev/                     Dev-only tools (e.g. ?gallery); excluded from production builds
@@ -81,7 +81,8 @@ docs/
 - **Input time vs think time**: `firstInputMs` = think time (equation shown → first input movement). `typingMs` = input time (first movement → answer). Games add `InputPace.allowance()` to each equation's travel time.
 - **Content pack**: zod-validated JSON content for a module, e.g. a worksheet. It is the target format for the MCP server.
 - **Progress**: long-lived per-player module state (e.g. befriended spirits), in the IndexedDB `progress` store via `getProgress`/`saveProgress`.
-- **Mode** (Math Monster): `adventure` (fight & befriend; boss rounds are Forge rounds), `pack` (worksheet), `practice` (staged classroom: you and your companion each answer your own column; the companion is a seeded bot with a maths **mastery** of 0–5), `forge` (Forge workshop: one lesson at a level of its own 6-level ladder, alone or with the companion, `ForgePractice`). The equation modes share `useMathSession`.
+- **Mode** (Math Monster): `adventure` (fight & befriend; boss rounds are Forge rounds), `pack` (worksheet), `practice` (staged classroom: you and your companion each answer your own column; the companion is a seeded bot with a maths **mastery** of 0–5), `forge` (Forge workshop: one lesson at a level of its own 6-level ladder, alone or with the companion, `ForgePractice`), `challenge` (one stage of a **custom challenge**, played through one of the others). The equation modes share `useMathSession`.
+- **Custom challenge** (Math Monster): 2–10 stages (battle, boss fight, Forge lesson, classroom lesson, each at a chosen difficulty) that a grown-up builds for a player, played in order on a PathMap. Pure model + zod schema in `challenges.ts`, stored per player under its own progress key.
 - **Forge puzzle** (`core/math/forge`): make the target using **every** piece (numbers, signs, brackets); the challenge is the order of operations. Board state is pure (`forgeTake/Drop/Nav/Primary/Secondary/Check…`); games render it with `ForgeBoardView`.
 - **Duel / piece / stone** (Maze Duel): each right answer is a *piece*: build one square, drop a *stone* next to the rival, or step back. Paths carry a number changed by operator squares; the gate needs exactly its target.
 - **Encounter / round / form**: in Math Monster, one spirit is fought over 5 rounds, one form per round. Round 5 is the boss (the shard), and beating it purifies the spirit.

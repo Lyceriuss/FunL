@@ -176,7 +176,8 @@ export function PracticeGame({ profile, telemetry, options, settings, onFinish }
         <StageEnd
           result={ended}
           pal={pal}
-          onNext={() => play(ended.stage + 1)}
+          oneLesson={!!opts.oneLesson}
+          onNext={() => (opts.oneLesson ? leave() : play(ended.stage + 1))}
           onRetry={() => play(ended.stage)}
           onLeave={() => leave()}
         />
@@ -674,12 +675,15 @@ function Seat({
 function StageEnd({
   result: r,
   pal,
+  oneLesson,
   onNext,
   onRetry,
   onLeave,
 }: {
   result: StageResult;
   pal: Creature;
+  /** A challenge stage: "next" continues the challenge (ends the session). */
+  oneLesson: boolean;
   onNext: () => void;
   onRetry: () => void;
   onLeave: () => void;
@@ -744,8 +748,7 @@ function StageEnd({
         <div className="pr-end__actions">
           {r.passed && (
             <button type="button" className="btn btn--primary btn--big" data-focusable onClick={onNext}>
-              ▶ Stage {r.stage + 1}: {next.topic}
-              {next.pace === 'quick' ? ' ⚡' : ''}
+              {oneLesson ? '▶ Continue' : `▶ Stage ${r.stage + 1}: ${next.topic}${next.pace === 'quick' ? ' ⚡' : ''}`}
               {countdown !== null && <small className="pr-end__count"> ({countdown})</small>}
             </button>
           )}
@@ -758,11 +761,13 @@ function StageEnd({
           >
             ↺ Try again
           </button>
-          <button type="button" className="btn btn--big" data-focusable onFocus={stop} onClick={onLeave}>
-            Leave class
-          </button>
+          {!(oneLesson && r.passed) && (
+            <button type="button" className="btn btn--big" data-focusable onFocus={stop} onClick={onLeave}>
+              Leave class
+            </button>
+          )}
         </div>
-        {!r.passed && <p className="pr-end__hint">Get {PASS_CORRECT} right to unlock the next stage.</p>}
+        {!r.passed && <p className="pr-end__hint">Get {PASS_CORRECT} right to {oneLesson ? 'clear this stage' : 'unlock the next stage'}.</p>}
       </div>
     </div>
   );

@@ -5,6 +5,7 @@ import type { MathOptions } from './options';
 import { parseMathPack } from '../../core/math/schema';
 import { JournalPanel, PracticePanel, ProgressPanel } from './MathHub';
 import { AdventureMap } from './AdventureMap';
+import { CustomPanel } from './ChallengeHub';
 
 export const mathMonsterModule: GameModule<MathOptions> = {
   id: 'math-monster',
@@ -89,6 +90,14 @@ export const mathMonsterModule: GameModule<MathOptions> = {
       description: 'Practise at your own pace. Pick what to practise.',
       Panel: PracticePanel,
       pages: { classroom: 'Classroom', forge: 'Forge workshop' },
+    },
+    {
+      id: 'custom',
+      title: 'Custom',
+      icon: '🎯',
+      description: 'Challenges made for you: a short run of stages picked by a grown-up. Clear them all to win the trophy.',
+      Panel: CustomPanel,
+      pages: { play: 'Challenge', build: 'Builder' },
     },
   ],
   extras: [

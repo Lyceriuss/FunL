@@ -31,6 +31,12 @@ flowchart LR
     Forge["Forge workshop: map of levels 1–6<br/>plus & minus → × → ÷ →<br/>brackets → 4 numbers → master"]
   end
 
+  subgraph Cus["🎯 Custom · challenges built by a grown-up"]
+    direction TB
+    Build["Builder: 2–10 stages<br/>battle · boss fight · Forge lesson · classroom<br/>each at a chosen difficulty"] --> Run["Challenge map<br/>clear stages in order"]
+    Run --> Trophy["🏆 Challenge complete"]
+  end
+
   subgraph Bar["Settings bar"]
     direction TB
     Journal["📖 Journal"]
@@ -41,6 +47,7 @@ flowchart LR
 
   MM --> Adv
   MM --> Class
+  MM --> Cus
   MM --> Bar
   Bef -. unlocks .-> Stages
   Bef -. joins .-> Forge
@@ -48,6 +55,7 @@ flowchart LR
   Stages -. pass 9 of 12 .-> Stages
   Forge -. 6 of 8 clean .-> Forge
   Stages -. maths stars .-> Bef
+  Bef -. unlocks classroom stages .-> Build
 ```
 
 ## 1. Component overview
@@ -361,7 +369,7 @@ Per-device conveniences go in `localStorage`: `funl.lastProfile`, `funl.settings
 2. Register it in `src/core/modules/registry.ts`.
 3. Document it in `docs/modules/<id>.md`, add its events to `docs/TELEMETRY.md`, and update the repo map in `AGENTS.md`.
 
-The shell provides menus, settings UI and persistence, profiles, session recording, results and data export at no extra cost. For long-lived per-player state (collections, unlocks) use `getProgress`/`saveProgress` from `core/telemetry/storage`. The module screen can be split into **modes** (`GameModule.modes`): big cards on its first page, each opening a page with an optional `Panel` and the settings and presets it names. A panel can open **sub-pages** (`ModuleMode.pages`, `PanelProps.page` / `openPage`; the view is `mode/page`, B goes up one level), e.g. Math Monster's Practice blocks → Classroom. For a map of levels or stages, use `core/ui/PathMap`. Extra pages (journal, progress…) go in the settings bar via `extras`; the shell adds Worksheets and Controls there. A one-page module uses `GameModule.Hub` instead. Panels receive `onStart(options)`, so they can launch sessions too (e.g. Math Monster's classroom and Forge workshop).
+The shell provides menus, settings UI and persistence, profiles, session recording, results and data export at no extra cost. For long-lived per-player state (collections, unlocks) use `getProgress`/`saveProgress` from `core/telemetry/storage`. The module screen can be split into **modes** (`GameModule.modes`): big cards on its first page, each opening a page with an optional `Panel` and the settings and presets it names. A panel can open **sub-pages** (`ModuleMode.pages`, `PanelProps.page` / `openPage`; the view is `mode/page`, B goes up one level), e.g. Math Monster's Practice blocks → Classroom, or Custom → a challenge's map / builder. For a map of levels or stages, use `core/ui/PathMap`. Extra pages (journal, progress…) go in the settings bar via `extras`; the shell adds Worksheets and Controls there. A one-page module uses `GameModule.Hub` instead. Panels receive `onStart(options)`, so they can launch sessions too (e.g. Math Monster's classroom and Forge workshop).
 
 ## MCP and backend (planned)
 

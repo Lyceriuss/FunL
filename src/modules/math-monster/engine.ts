@@ -78,6 +78,11 @@ export interface EngineConfig {
    */
   encounterOrigin?: number;
   /**
+   * Last level to play: defeating it completes the game (custom challenge
+   * stages are one fight). Default: none, the game goes on until game over.
+   */
+  endLevel?: number;
+  /**
    * Boss rounds become Forge rounds: build the seal number from pieces
    * (order of operations) before the spirit's attack charges. Off when omitted.
    */
@@ -356,6 +361,9 @@ export class MathMonsterEngine {
   private forgeCfg: ForgeConfig | null;
   private forgeRng: Rng;
   private encounterOrigin: number;
+  private endLevel: number | null;
+  /** The last level was defeated: complete once its K.O. has played out. */
+  private ending = false;
   private betweenUntil = 0;
   private nextSpawnAt = 0;
   private hitsThisLevel = 0;
@@ -386,6 +394,7 @@ export class MathMonsterEngine {
     this.forgeRng = createRng(cfg.forge?.seed ?? 1);
     const level = cfg.startLevel ?? 1;
     this.encounterOrigin = Math.min(level, cfg.encounterOrigin ?? level);
+    this.endLevel = cfg.endLevel ?? null;
     const pos = this.positionOf(level);
     const levelConfig = this.configFor(level, pos.boss);
     const lives = cfg.lives ?? DEFAULT_LIVES;
@@ -435,6 +444,11 @@ export class MathMonsterEngine {
 
     if (s.phase === 'between') {
       if (s.time < this.betweenUntil) return;
+      if (this.ending) {
+        s.phase = 'complete';
+        this.emit({ type: 'game.complete', score: s.score, level: s.level });
+        return;
+      }
       s.phase = 'playing';
       this.nextSpawnAt = s.time;
     }
@@ -626,6 +640,14 @@ export class MathMonsterEngine {
       const wasBoss = s.boss;
       this.effect({ outcome: 'defeated', ...fx });
       this.emit({ type: 'monster.defeated', level: s.level, encounter: s.encounter, round: s.round, boss: s.boss });
+      if (this.endLevel !== null && s.level >= this.endLevel) {
+        // The last fight: no next round, the game completes after the K.O.
+        s.active = [];
+        s.forge = null;
+        this.ending = true;
+        this.toBetween(wasBoss ? BOSS_DEFEAT_MS : DEFEAT_MS);
+        return true;
+      }
       s.level++;
       Object.assign(s, this.positionOf(s.level));
       s.levelConfig = this.configFor(s.level, s.boss);

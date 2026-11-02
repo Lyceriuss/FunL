@@ -10,6 +10,36 @@ Sections, used when relevant: ✨ New · 🎮 Gameplay · ⚖️ Balance · 🎨
 
 ---
 
+## v0.16.0 · "Custom Challenges" (2026-11-02)
+
+Grown-ups can now build a challenge for the day.
+
+✨ **New**
+- **🎯 Custom mode.** It's the third card on the Math Monster screen, next to Adventure and Practice. Make a **challenge** of 2 to 10 stages, pick the game and how hard it is for each stage, and give it a name. The player then plays it as a small world map.
+- **Stage games:**
+  - **⚔️ Battle:** one fight on a topic (Small sums … Lightning round) at Calm, Normal or Fast speed.
+  - **👑 Boss fight:** forge seals at a Forge level (1–6) before the spirit's attack charges, with Calm, Normal or Fast forge time.
+  - **🔨 Forge lesson:** 8 order-of-operations puzzles at a Forge level.
+  - **📚 Classroom:** a 12-equation lesson at any of the 18 classroom stages, side by side with your companion. It needs a companion.
+- **The builder** lists the stages on the left and edits the selected stage on the right: the game, topic or level, and speed. You can move stages earlier or later, add a copy, or remove one. Rename with the on-screen keyboard. Everything is saved as you go, and it all works with a controller.
+- **Playing:** stages open one by one. Clear a stage (win the fight, or pass the lesson) to open the next one. Clear them all for the 🏆 trophy. "Start over" plays it again from stage 1, and "Edit" changes the stages at any time.
+- Challenges are saved per player. "Start the adventure over" doesn't delete them.
+
+🎮 **Gameplay**
+- Challenge stages leave the adventure alone: no world map progress, no journal entries, and no befriending from a challenge boss. Forge and classroom lessons still unlock their usual levels when passed.
+- In a challenge, a lesson's end screen offers **▶ Continue** (back to the challenge) and **Try again** instead of "next level".
+
+📊 **Data & telemetry**
+- New event `math.challenge.stage` (one per played stage: challenge id, stage index, game, settings, passed, challenge complete). The session summary gets `summary.challenge`.
+- New progress record `math-monster.challenges:<profileId>`, validated with zod when loaded. It's not a database schema change.
+
+🛠️ **Dev & tooling**
+- `challenges.ts`: the pure challenge model, its zod schema and storage. New files `ChallengeHub.tsx` (overview, map, builder) and `ChallengeGame.tsx` (plays a stage through the existing games and records the result).
+- Engine: an `endLevel` option completes the game after that level's K.O.
+- `MathOptions` gains `{ mode: 'challenge' }`, and forge and practice options gain `oneLesson`.
+
+---
+
 ## v0.15.0 · "World Map" (2026-11-02)
 
 You can now see where you are in the adventure, and Practice is tidier.

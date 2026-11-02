@@ -259,6 +259,20 @@ describe('encounters', () => {
     ]);
   });
 
+  it('with an end level, defeating it completes the game after the K.O.', () => {
+    const engine = new MathMonsterEngine({ levels: DEFAULT_LEVELS, source: new GeneratedSource(9), startLevel: 4, endLevel: 4 });
+    const events: EngineEvent[] = [];
+    engine.on((e) => events.push(e));
+    engine.start();
+    clearRound(engine);
+
+    expect(engine.state.phase).toBe('complete');
+    expect(engine.state.level).toBe(4);
+    const types = events.map((e) => e.type);
+    expect(types.filter((t) => t === 'level.start')).toHaveLength(1);
+    expect(types.indexOf('game.complete')).toBeGreaterThan(types.indexOf('monster.defeated'));
+  });
+
   it('boss rounds have more HP but the same lanes', () => {
     const engine = new MathMonsterEngine({
       levels: DEFAULT_LEVELS,

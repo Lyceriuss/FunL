@@ -305,6 +305,7 @@ export function ForgePracticeGame({ profile, telemetry, options, onFinish }: Gam
           record={ended}
           palName={pal?.name ?? null}
           unlocked={unlocked}
+          oneLesson={!!opts.oneLesson}
           onNext={() => setTier((t) => Math.min(FORGE_MAX_TIER, t + 1) as ForgeTier)}
           onAgain={() => setLessonNo((n) => n + 1)}
           onDone={() => finish('completed')}
@@ -320,6 +321,7 @@ function LessonEnd({
   record,
   palName,
   unlocked,
+  oneLesson,
   onNext,
   onAgain,
   onDone,
@@ -327,6 +329,8 @@ function LessonEnd({
   record: LessonRecord;
   palName: string | null;
   unlocked: number;
+  /** A challenge stage: the lesson is the whole session, so "next" means continue (done). */
+  oneLesson: boolean;
   onNext: () => void;
   onAgain: () => void;
   onDone: () => void;
@@ -336,7 +340,7 @@ function LessonEnd({
   useEffect(() => {
     ref.current?.querySelector<HTMLElement>('[data-autofocus]')?.focus();
   }, []);
-  const canNext = record.tier < FORGE_MAX_TIER && unlocked > record.tier;
+  const canNext = oneLesson ? record.passed : record.tier < FORGE_MAX_TIER && unlocked > record.tier;
   return (
     <div className="pr-end fp-end" ref={ref} role="dialog" aria-label="Lesson result">
       <div className={`pr-end__card ${record.passed ? 'is-pass' : ''}`}>
@@ -348,23 +352,25 @@ function LessonEnd({
           You forged {record.sealed} puzzles, <b>{record.clean}</b> of them cleanly (need {PASS_CLEAN}).
           {palName && record.petRight !== null ? ` ${palName} got ${record.petRight} of ${record.petRight + (record.petWrong ?? 0)} right.` : ''}
         </p>
-        {record.passed && canNext && (
+        {record.passed && canNext && !oneLesson && (
           <p className="fp-end__unlock">
             🔓 Level {record.tier + 1} unlocked: {FORGE_TIERS[(record.tier + 1) as ForgeTier].label}
           </p>
         )}
         <div className="pr-end__actions">
           {canNext && (
-            <button type="button" className="btn btn--primary" data-focusable data-autofocus onClick={onNext}>
-              ▶ Next: level {record.tier + 1}
+            <button type="button" className="btn btn--primary" data-focusable data-autofocus onClick={oneLesson ? onDone : onNext}>
+              {oneLesson ? '▶ Continue' : `▶ Next: level ${record.tier + 1}`}
             </button>
           )}
           <button type="button" className={`btn ${canNext ? '' : 'btn--primary'}`} data-focusable data-autofocus={canNext ? undefined : true} onClick={onAgain}>
             ↻ {record.passed ? 'Play this level again' : 'Try again'}
           </button>
-          <button type="button" className="btn" data-focusable onClick={onDone}>
-            Done
-          </button>
+          {!(oneLesson && record.passed) && (
+            <button type="button" className="btn" data-focusable onClick={onDone}>
+              {oneLesson ? 'Leave' : 'Done'}
+            </button>
+          )}
         </div>
       </div>
     </div>

@@ -10,10 +10,10 @@ import { CreatureArt, type CreatureMood } from './Creature';
 import { getCreature, glowColor, type Creature } from './creatures';
 import { AnswerDock } from './Dock';
 import { BOSS_DEFEAT_MS, type Effect, type EngineEvent, type EngineState } from './engine';
-import { createEngine, sessionSeed, type MathOptions } from './options';
+import { challengeFight, challengeForm, createEngine, sessionSeed, type MathOptions } from './options';
 import { PauseMenu } from '../../core/ui/PauseMenu';
 import { loadSpirits, purify, recordCleared, recordForm, saveSpirits, setCompanion, emptyProgress, type SpiritProgress } from './spirits';
-import { mapLabel, worldSpirit } from './worldMap';
+import { mapLabel, worldOf, worldSpirit } from './worldMap';
 import { summarize } from './summary';
 import { useMathSession } from './useMathSession';
 import './mathMonster.css';
@@ -39,7 +39,11 @@ function laneTop(lane: number, lanes: number): number {
   return 18 + (lane * 52) / (lanes - 1);
 }
 
-/** Adventure mode: fight corrupted spirits over 5-round encounters, purify and befriend them. */
+/**
+ * Adventure mode: fight corrupted spirits over 5-round encounters, purify and befriend them.
+ * Also plays worksheets, and a custom challenge's battle or boss stage (one
+ * fight that leaves the adventure's progress alone).
+ */
 export function AdventureGame({ profile, telemetry, options, settings, onFinish }: GameProps<MathOptions>) {
   // Extra time per equation for how fast this player can *enter* an answer on their device.
   const pace = usePace(profile.id, settings.inputHelp !== 'off');
@@ -59,8 +63,10 @@ export function AdventureGame({ profile, telemetry, options, settings, onFinish 
   const [befriend, setBefriend] = useState<Creature | null>(null);
   const pendingRound = useRef<{ encounter: number; round: number; boss: boolean } | null>(null);
 
+  /** A custom challenge's fight: one spirit form, no story progress (no map, journal or befriending). */
+  const fight = options.mode === 'challenge' ? challengeFight(options.stage) : null;
   const updateSpirits = (fn: (p: SpiritProgress) => SpiritProgress) => {
-    if (!spiritsRef.current) return;
+    if (!spiritsRef.current || fight) return;
     const next = fn(spiritsRef.current);
     spiritsRef.current = next;
     setSpirits(next);
@@ -68,7 +74,8 @@ export function AdventureGame({ profile, telemetry, options, settings, onFinish 
   };
 
   /** Creature for an encounter: each world of the map has its own spirit (worldMap.ts). */
-  const creatureFor = (encounter: number): Creature => worldSpirit(encounter);
+  const creatureFor = (encounter: number): Creature => worldSpirit(fight ? worldOf(fight.level) : encounter);
+  const formFor = (round: number): number => (fight ? challengeForm(fight.level, fight.boss) : round - 1);
 
   useEffect(() => {
     let cancelled = false;
@@ -108,14 +115,14 @@ export function AdventureGame({ profile, telemetry, options, settings, onFinish 
       const { encounter, round, boss } = pendingRound.current;
       pendingRound.current = null;
       const c = creatureFor(encounter);
-      telemetry.log('math.spirit.encounter', { creatureId: c.id, form: round - 1, round, boss, encounter });
+      telemetry.log('math.spirit.encounter', { creatureId: c.id, form: formFor(round), round, boss, encounter });
       updateSpirits((p) => recordForm(p, c.id, round - 1));
     } else if (e.type === 'monster.defeated') {
       // The world map node is cleared (worksheets are not on the map).
       if (options.mode === 'adventure') updateSpirits((p) => recordCleared(p, e.level));
       const c = creatureFor(e.encounter);
-      setDefeatedShown({ creature: c, form: e.round - 1, boss: e.boss });
-      if (e.boss) {
+      setDefeatedShown({ creature: c, form: formFor(e.round), boss: e.boss });
+      if (e.boss && !fight) {
         telemetry.log('math.spirit.purified', { creatureId: c.id, encounter: e.encounter });
         updateSpirits((p) => purify(p, c.id, Date.now()));
         setTimeout(() => {
@@ -162,7 +169,7 @@ export function AdventureGame({ profile, telemetry, options, settings, onFinish 
 
   // Which creature/form is on stage right now.
   const current: Shown | null = ready
-    ? { creature: creatureFor(state.encounter), form: state.round - 1, boss: state.boss }
+    ? { creature: creatureFor(state.encounter), form: formFor(state.round), boss: state.boss }
     : null;
   const onStage: Shown | null = purifying || koBanner ? defeatedShown : current;
   const transforming = !purifying && !!defeatedShown && sinceDefeat >= KO_BANNER_MS && sinceDefeat < KO_BANNER_MS + 600;
@@ -205,7 +212,7 @@ export function AdventureGame({ profile, telemetry, options, settings, onFinish 
           ))}
         </div>
         <div className="mm-stage">
-          <span className="mm-stage__num">{options.mode === 'adventure' ? `WORLD ${mapLabel(state.level)}` : `STAGE ${state.level}`}</span>
+          <span className="mm-stage__num">{options.mode === 'adventure' ? `WORLD ${mapLabel(state.level)}` : options.mode === 'challenge' ? `${options.title} · ${options.index + 1}/${options.total}` : `STAGE ${state.level}`}</span>
           <span className="mm-stage__name">{state.levelConfig.name}</span>
         </div>
         <div className="mm-score">

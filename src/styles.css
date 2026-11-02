@@ -272,6 +272,43 @@ html[data-input='gamepad'] .card[data-focusable]:focus { transform: translateY(-
 .mm-world__art { width: 40px; height: 42px; flex: none; }
 .pmap__region.is-right .mm-world { flex-direction: row-reverse; text-align: right; }
 .pmap-placeholder { min-height: 260px; }
+/* Custom mode: challenge cards, the challenge's head on its map, the builder. */
+.mode-card--custom { background: linear-gradient(150deg, rgb(163 230 53 / 0.18), rgb(34 211 238 / 0.12) 60%, transparent); }
+.challenge-card { min-height: 180px; }
+.challenge-card.is-complete { background: linear-gradient(150deg, rgb(251 191 36 / 0.24), rgb(124 58 237 / 0.14) 60%, transparent); }
+.challenge-card--new { border-style: dashed; background: transparent; }
+.challenge-head { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; margin-bottom: 14px; }
+.challenge-head > div:nth-child(2) { flex: 1 1 220px; }
+.challenge-head p { margin: 2px 0 0; }
+.challenge-head__icon { font-size: 40px; line-height: 1; }
+.challenge-head.is-complete { border-color: rgb(251 191 36 / 0.6); background: linear-gradient(120deg, rgb(251 191 36 / 0.16), var(--surface) 60%); }
+.cb { display: flex; flex-direction: column; gap: 16px; }
+.cb-name { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; }
+.cb-name strong { font-size: 20px; }
+.cb-name__form { display: flex; flex-direction: column; gap: 10px; width: 100%; }
+.cb-body { display: grid; grid-template-columns: minmax(240px, 1fr) minmax(0, 2fr); gap: 18px; align-items: start; }
+.cb-stages ol { list-style: none; margin: 0 0 10px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.cb-stage {
+  display: flex; gap: 10px; align-items: center; width: 100%; padding: 10px 12px; text-align: left; cursor: pointer;
+  border: 1px solid var(--border); border-radius: 10px; background: var(--surface); color: var(--text); font: inherit;
+}
+.cb-stage.is-selected { border-color: var(--primary); box-shadow: 0 0 0 2px rgb(34 211 238 / 0.35); background: var(--surface-hi); }
+.cb-stage__num {
+  flex: none; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%;
+  background: #2a1d63; border: 2px solid var(--accent); font-weight: 700; font-size: 13px;
+}
+.cb-stage__text { flex: 1; }
+.cb-stage__done { color: var(--primary); font-weight: 700; }
+.cb-editor { display: flex; flex-direction: column; gap: 14px; }
+.cb-editor h3 { margin: 0; }
+.cb-editor__hint { margin: -6px 0 0; font-size: 14px; }
+.cb-levels button { padding: 6px 12px; font-weight: 400; }
+.cb-levels button b { margin-right: 4px; }
+.segmented button:disabled, .cb-editor__actions .btn:disabled { opacity: 0.4; cursor: default; }
+.cb-done { justify-content: flex-end; }
+@media (max-width: 760px) {
+  .cb-body { grid-template-columns: 1fr; }
+}
 @media (max-width: 640px) {
   .module-bar { justify-content: flex-start; }
   .module-bar__btn { padding: 4px 8px; font-size: 13px; }

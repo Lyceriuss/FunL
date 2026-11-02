@@ -64,6 +64,7 @@ Times are **engine ms** (they stop while paused). `key` is a stable fact id such
 | `math.practice.companion` | Practice: the companion answered (or ran out of time on) **its own** equation `id` (from the companion's engine). Fields: `key`, `companionId`, `mastery`, `outcome` (right · wrong · unsure), `attempted` (false = it never got to it), `answer` (null if unsure), `correct`, `strategy` (mental-math strategy id, e.g. `ten-pair`), `slip` (slip id when wrong, e.g. `forgot-term`), `steps` (reasoning length), `thinkMs` |
 | `math.practice.stage.end` | Practice: `stage`, `passed`, `playerCorrect`, `length`, `petCorrect`, `petWrong`, `petUnfinished`, `companionId`, `masteryBefore`, `masteryAfter`, `unlocked` (highest stage now unlocked). Replaces `math.practice.mastery` (v0.4.0 only) |
 | `math.game.over` / `math.game.complete` | `score`, `level` |
+| `math.challenge.stage` | A custom challenge stage ended (logged after the stage's own events): `challengeId`, `index` (0-based), `stages` (how many the challenge has), `kind` (battle · boss · forge · classroom), `stage` (the full stage settings), `passed`, `challengeComplete` (true when this cleared the last stage) |
 
 ### Forge events (`math.forge.*`)
 
@@ -98,6 +99,8 @@ Forge boss rounds (Adventure) and Forge practice (classroom). `id` is the puzzle
 
 Adventure sessions with Forge rounds add `summary.forge`: `{ sealed, medianMs, firstTry, byTier: { [tier]: { sealed, medianMs, medianTries } } }`. Forge workshop sessions have `summary.forgePractice`: `{ lessons: [{ tier, sealed, clean, passed, ms, petRight, petWrong }], sealed, clean, hinted, levelsPassed, medianMs, companion, puzzles: [{ key, tier, target, tries, ms, hinted }] }` and `playMs`.
 
+Challenge stages add `summary.challenge`: `{ id, index, stages, kind, passed, completed }` (on top of the summary of the game the stage was played as).
+
 Practice sessions add `summary.practice`: `{ companionId, stagesPlayed, stagesCleared, highestStage, unlocked, masteryAfter, companionCorrect, companionAnswered, stages: [{ stage, topic, pace, length, completed, passed, playerCorrect, playerWrong, playerTimeouts, petCorrect, petWrong, petUnfinished, masteryBefore, masteryAfter, score, bestStreak, playMs, level }] }`. The top-level summary fields cover all stages together.
 
 ### Input pace record (`progress` store, key `input-pace:<profileId>`)
@@ -107,6 +110,10 @@ Practice sessions add `summary.practice`: `{ companionId, stagesPlayed, stagesCl
 ### Math Monster progress record (`progress` store, key `math-monster:<profileId>`)
 
 `{ version: 1, spirits: { [creatureId]: { encountered, bestForm, purifiedAt?, mastery? } }, companion: creatureId | null, classroom?: { unlocked, forgeTier? }, adventure?: { cleared } }`. `adventure.cleared` is the furthest Adventure level (world map node) cleared (v0.15; older saves: 5 per purified spirit). `classroom.forgeUnlocked` is the highest Forge workshop level unlocked (1–6). (`classroom.forgeTier` from v0.12 is read once and mapped: 1→1, 2→2, 3→4, 4→5.) `classroom.unlocked` is the highest practice stage the player may start. `mastery` is the number of completed practice lessons (0–5).
+
+### Custom challenges record (`progress` store, key `math-monster.challenges:<profileId>`)
+
+`{ version: 1, openId: string | null, challenges: [{ id, title, stages: [stage], cleared, createdAt, completedAt? }] }`, where a stage is `{ kind: 'battle', level, pace }`, `{ kind: 'boss', tier, pace }`, `{ kind: 'forge', tier }` or `{ kind: 'classroom', stage }` (`pace`: calm · normal · fast). `cleared` is the number of stages cleared in order. Validated with zod on load (see docs/modules/math-monster.md).
 
 ## Maze Duel (`duel.*`)
 
