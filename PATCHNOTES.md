@@ -10,6 +10,119 @@ Sections, used when relevant: ✨ New · 🎮 Gameplay · ⚖️ Balance · 🎨
 
 ---
 
+## v0.13.0 · "Workshop & Map" (2026-11-02)
+
+The Forge gets its own place to practise, with levels to unlock, a timer where you're working, and a new map that shows how the whole game fits together.
+
+✨ **New: Forge workshop (practice)**
+- A **Forge workshop** section on the Math Monster screen, open to everyone. Practise alone, or (once you've befriended a spirit) with your companion forging next to you.
+- **Its own ladder of 6 levels**, separate from the classroom stages: Plus & minus → × before + → **÷ joins in** (new) → Brackets → Four numbers → **Master forger** (new: four numbers with brackets).
+- A lesson is 8 puzzles at one level. Forge **6 cleanly** (within 2 tries, no hint) to **pass and unlock the next level**. Unlocked levels can always be replayed.
+- After a lesson: **Next level / Play this level again / Done**, fully controller-friendly.
+- The lesson ends when you finish; you no longer wait for your companion to finish its puzzles.
+
+✨ **New: 🗺️ Game map**
+- A new button on the home screen. It shows the game's structure as UML and flow diagrams: what you can play and what unlocks what ("The game at a glance"), plus how the code fits together (components, classes, screens, the engines, storage, the Forge board). Pick a diagram with the controller or mouse and zoom in.
+- The diagrams are drawn live from the project docs, so the map and the docs always match.
+
+🎮 **Gameplay**
+- **Timer in the equation bar:** the time left now sits inside the row you're building in. In Adventure it's a countdown to the spirit's attack (orange when it gets low, red at the end). In practice it's a calm stopwatch.
+- New setting **Forge time: Relaxed / Normal / Quick** (1.5× / 1× / 0.7× the time) for the Adventure's forge rounds.
+- Adventure boss rounds use the new levels: one step up per spirit encounter (level 1 at stage 5, 2 at stage 10, 3 (÷) at 15, 4 (brackets) at 20, 5 at 25, 6 from 30).
+
+🐛 **Fixes**
+- All menu screens checked with a controller (every button reachable with the D-pad from where focus starts): profiles, home, Game map, Sound, Data, both module screens, pause, lesson end, results.
+
+📊 **Data & telemetry**
+- Forge practice: `math.forge.practice.start` adds `passAt` (`mastery`/`companionId` null when alone); `math.forge.practice.end` now has `tier`, `clean`, `passed` (and companion counts null when alone); new `math.forge.unlock` (`level`). `math.forge.tier` is gone (levels no longer change within a lesson). Summary `forgePractice` now lists lessons. Progress: `classroom.forgeUnlocked` (1–6); v0.12 saves are carried over.
+
+🛠️ **Dev & tooling**
+- New dependency **Mermaid 11.17.2** (diagram renderer), loaded only when the Game map opens. `core/ui/uml` (`UmlGraph`, `diagramsIn`), `screens/GameMapScreen` (lazy-loaded with the docs it reads).
+- Forge tiers 1–6 in `core/math/forge` (`FORGE_MAX_TIER`); `ForgeBoardView` `timer` prop; `ForgePractice` is now one fixed-level lesson (`PASS_CLEAN`, `CLEAN_TRIES`, solo when `mastery` is null); `forgeUnlockedOf` / `recordForgeLesson`.
+- New diagrams: "The game at a glance" (ARCHITECTURE.md), the Forge board (FORGE.md).
+
+---
+
+## v0.12.0 · "The Forge" (2026-10-24)
+
+A new kind of maths inside Math Monster: **forge puzzles** about the *order of operations*. You get a target, say **= 20**, and a handful of pieces (2, 3, 4, +, ×, brackets). Use **every** piece, in the right order, so the calculation makes exactly the target: (2 + 3) × 4 = 20, but 2 + 3 × 4 = 14!
+
+✨ **New: forge the seal (Adventure boss rounds)**
+- The **final round of every spirit encounter** is now a forge round: the spirit's last shard is broken by forging **3 seals**. Rounds 1–4 stay as they were.
+- While you build, the spirit **charges an attack**. When the bar fills you lose a life, but the puzzle stays and the bar starts again (gentle: no puzzle is ever lost). Players who need more time to move pieces (e.g. on a controller) get extra charge time from their input pace.
+- Puzzles get harder through the adventure: **plus & minus** (first boss) → **× before +** → **brackets** → **four numbers** (with ÷).
+
+✨ **New: forge practice (classroom)**
+- A new card in the practice classroom. You and your companion each forge 8 puzzles side by side, with no timer.
+- Your companion **thinks out loud**: it tries arrangements, works them out in the right order ("× first: 3 × 4 = 12"), and compares with the target. Before it has mastered maths it makes the classic mistakes: working **left to right** ("2 + 3 = 5, × 4 = 20!") or settling for "close enough".
+- The level adapts: two first-try puzzles in a row → harder, a big struggle → easier. After two wrong tries you get a **hint** (the first calculation). Your level is remembered.
+
+🎮 **How to play a forge puzzle**
+- **Controller:** stick / D-pad moves, **A** picks up a piece, move to where it goes, **A** places it (the others slide apart to make room), **X** puts a piece back, **Y** checks.
+- **Keyboard:** type a number or sign to grab that piece (`+ - * / x ( )`), arrows to move, Enter places, Backspace puts back, Space checks.
+- **Touch:** tap a piece, then tap where it goes (before the piece you tap, or the empty end); tap a placed piece to move it; ✓ checks.
+- While you build, every sign shows **when it is worked out** (① ② ③), and the row shows each calculation and the running result, so you can see *why* the order matters.
+- A check explains what's wrong: pieces left, two numbers or two signs side by side, brackets not matching, a result that isn't whole, or "that makes 14, not 20".
+
+🎨 **Art & UI**
+- Pieces glide smoothly between tray and row (FLIP animation) and snap into place; the held piece floats and rides along the row.
+- Forge panel in the battle with the spirit's charge bar and seal count; the boss banner explains the task.
+- New sounds (Sound panel): **Pick up a piece**, **Piece snaps in**, **Seal forged**, 3 variants each plus silent.
+
+🐛 **Fixes**
+- Controller menus: pressing down from a small card no longer skips a wide card right below it (e.g. "Continue: stage 2"); the nearest item edge-to-edge in that direction is chosen.
+
+📊 **Data & telemetry**
+- New `math.forge.*` events: puzzle start, every piece move, every check (with the error or the value made), sealed, charge, touch taps; practice adds hint, tier change, companion attempts (strategy, slip, what it really made) and the lesson end. Session summary adds `forge` (Adventure) or `forgePractice`. Progress stores `classroom.forgeTier`.
+
+🛠️ **Dev & tooling**
+- New shared core pieces: `core/math/expression.ts` (parse/evaluate with order-of-operations steps and reasons, left-to-right evaluation, error explanations), `core/math/forge.ts` (puzzle generator with tiers and traps, board state as pure functions), `core/mental-math/order.ts` (`thinkForge`), `core/ui/forge/` (`ForgeBoardView`, `forgeControls`) and `core/ui/useFlip.ts`. Any game can use forge puzzles.
+- Engine: `forge` option (Forge boss rounds), `forgeNav/Primary/Secondary/Take/Drop/Stash/Quick/Check`, `stats.forge`. `ForgePractice` session (`forgePractice.ts`). 24 new tests.
+- Docs: new `docs/FORGE.md`.
+
+---
+
+## v0.11.0 · "Maze Duel" (2026-10-24)
+
+A second maths game, and the first one against an opponent: race **Glitch**, a cheeky Static imp, through a number maze. Every right answer gives you one square of path. Squares like +3, −2, ×2 and ÷2 change the number your path carries, and only *exactly* the gate's number opens it.
+
+✨ **New: Maze Duel**
+- **The board:** a 9 × 7 grid. You start on the left, Glitch on the right, and the ★ Star Gate with its target number sits in the middle. The two mazes are mirror images (perfectly fair), separated by a crystal wall that only opens at the gate.
+- **Your number** starts at 1. Stepping onto an operator square changes it (+n, −n, ×n, ÷n). ÷ only works when it divides evenly, numbers stay between 0 and 99, and you may only step into the gate with exactly the target.
+- **Pieces:** answer an equation right to earn a piece, then choose:
+  - 🧱 **Build** one square next to your path's end (it shows the number you'd get),
+  - 🪨 **Stone**: drop one of your 3 stones next to Glitch's path end to block it,
+  - ↩ **Back**: pick up your last square to get out of a dead end.
+  A wrong answer shows the right one and earns nothing.
+- **Fair blocking:** a stone can never seal anyone off completely, and stones never go right next to the gate.
+- **Glitch** answers its own equations at the same time, thinking out loud in a thought bubble with real mental-math strategies (and slips: its wrong answers come from mistakes in its reasoning). It plans the shortest route that hits the target, backs out of dead ends like a person trying another way, and drops a stone on your next square when you get close.
+- **Settings:** Glitch **Easy / Medium / Hard** (maths skill, speed, how often it wanders off the best route, how early it blocks), **Path hints On/Off** (green = still leads to the gate, dashed = dead end), and **Input time help**: Glitch waits for your input pace, so a controller dial is as fast as a keyboard.
+- **Topics:** plus & minus to 10, to 20, times tables, big numbers.
+- **Module screen:** meet Glitch, read the rules, and see your record against each difficulty (and your fastest win).
+
+🎮 **Controls**
+- Answering works exactly like Math Monster (keypad, keyboard, controller dial).
+- Placing a piece: **keyboard** arrows/WASD aim, Enter places, Tab switches build ↔ stone, Backspace steps back. **Controller** stick/D-pad aims, A places, X switches, B steps back. **Touch**: tap a glowing square.
+
+🎨 **Art & UI**
+- Glowing number maze with operator colours, your path in cyan and Glitch's in pink, number badges on every square, previews and hints on the squares you can use.
+- Glitch: a new SVG character with moods (thinking, oops, smug, cheering, sulking).
+- New music track **Puzzle chase** (playful & tense) in a new **Maze duel** music slot, selectable in the Sound panel.
+- Phone portrait/landscape layouts.
+
+🐛 **Fixes**
+- Controller menus: pressing left/right now prefers items in the same row (and up/down the same column), so e.g. "right" along the top bar reaches 🔊 Sound instead of dropping into the game cards.
+
+📊 **Data & telemetry**
+- New `duel.*` events (answers with think/input time, every move, Glitch's answers and strategies), a duel session summary, and a per-player duel record (see TELEMETRY.md).
+
+🛠️ **Dev & tooling**
+- Shared game pieces moved into `core/` so modules never copy or import each other: `core/math` (problems, levels, schemas, seeded RNG, difficulty), `core/ui/number-entry` (keypad, radial dial, `NumberDock`, number actions), `core/ui/PauseMenu`, `core/ui/Hero`, `core/ui/ThinkBubble`, and the shared styles `core/ui/game.css` / `think.css`. Math Monster now uses them too (no behaviour change).
+- `src/modules/maze-duel/`: pure `board.ts` (seeded mirrored generator, route search) and `DuelEngine` (`duel.ts`), the rival planner (`ai.ts`), and 14 tests, including a 30-board AI-against-AI test that every duel finishes.
+- Dev handle `window.__funl.duel` for browser tests.
+
+---
+
 ## v0.10.0 · "Your Pace" (2026-10-24)
 
 The game now learns how fast *you* can enter an answer and gives every equation enough time for it, so slow fingers (or a controller dial) never look like slow thinking.

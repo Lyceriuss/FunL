@@ -1,14 +1,8 @@
 import type { InputDevice } from '../../core/input/types';
-import { RadialDial } from './Dial';
+import { NumberDock } from '../../core/ui/number-entry/NumberDock';
 import type { EngineState } from './engine';
-import { Keypad } from './Keypad';
 
-/**
- * Bottom-left answer box + input, shared by all modes:
- * - touch/mouse: on-screen keypad
- * - controller: radial number dial (stick points, A types, X deletes, Y sends)
- * - keyboard: just the answer box
- */
+/** Math Monster's answer dock: the shared NumberDock fed from the engine state. */
 export function AnswerDock({
   state,
   lastDevice,
@@ -28,17 +22,17 @@ export function AnswerDock({
 }) {
   const latest = state.effects[state.effects.length - 1];
   const wrong = latest?.outcome === 'wrong' && state.time - latest.at < 400;
-  const mode = lastDevice === 'gamepad' ? 'dial' : lastDevice === 'keyboard' ? 'compact' : 'keypad';
   return (
-    <div className={`mm-dock mm-dock--${mode}`}>
-      <div className={`mm-answer ${wrong ? 'is-wrong' : ''}`} key={wrong ? latest.id : 'a'}>
-        <span className="mm-answer__label">ANSWER</span>
-        <span className="mm-answer__value">{state.input || <span className="mm-answer__placeholder">?</span>}</span>
-      </div>
-      {mode === 'keypad' && (
-        <Keypad cursor={null} pressed={pressed} disabled={state.phase !== 'playing'} onPress={onKeypadPress} />
-      )}
-      {mode === 'dial' && <RadialDial value={dial} flash={dialFlash} onPick={onDialPick} />}
-    </div>
+    <NumberDock
+      value={state.input}
+      wrongKey={wrong ? latest.id : null}
+      disabled={state.phase !== 'playing'}
+      lastDevice={lastDevice}
+      dial={dial}
+      dialFlash={dialFlash}
+      pressed={pressed}
+      onKeypadPress={onKeypadPress}
+      onDialPick={onDialPick}
+    />
   );
 }

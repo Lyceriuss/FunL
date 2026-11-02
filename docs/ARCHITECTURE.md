@@ -2,7 +2,45 @@
 
 FunL is a client-only React + TypeScript single-page app built with Vite. All data lives in the browser's IndexedDB. A backend and an MCP server are planned; see the [last section](#mcp-and-backend-planned).
 
-Contents: [Components](#1-component-overview) · [Core contracts (class diagram)](#2-core-contracts-class-diagram) · [Runtime flow (sequence)](#3-runtime-flow-one-answer-sequence-diagram) · [Navigation (state)](#4-app-navigation-state-diagram) · [Engine phases (state)](#5-engine-phases-math-monster) · [Storage (ER)](#6-storage-indexeddb-er-diagram) · [Input](#7-input-system) · [Telemetry vs logs](#8-telemetry-vs-logs) · [Adding a module](#adding-a-module) · [MCP plan](#mcp-and-backend-planned)
+The diagrams in this file (and in docs/modules/) are also shown in the app: **🗺️ Game map** on the home screen (`src/screens/GameMapScreen.tsx`), rendered live from these Markdown files.
+
+Contents: [The game at a glance](#0-the-game-at-a-glance) · [Components](#1-component-overview) · [Core contracts (class diagram)](#2-core-contracts-class-diagram) · [Runtime flow (sequence)](#3-runtime-flow-one-answer-sequence-diagram) · [Navigation (state)](#4-app-navigation-state-diagram) · [Engine phases (state)](#5-engine-phases-math-monster) · [Storage (ER)](#6-storage-indexeddb-er-diagram) · [Input](#7-input-system) · [Telemetry vs logs](#8-telemetry-vs-logs) · [Adding a module](#adding-a-module) · [MCP plan](#mcp-and-backend-planned)
+
+## 0. The game at a glance
+
+What a player can do, and what unlocks what. Solid arrows lead to a place in the game; dotted arrows show what progress opens up.
+
+```mermaid
+flowchart LR
+  Profiles([Who's playing?]) --> Home([Home])
+  Home --> MM[👾 Math Monster]
+  Home --> MD[🧩 Maze Duel]
+  Home --> Map[🗺️ Game map]
+  Home --> Snd[🔊 Sound]
+
+  subgraph Adv["Adventure"]
+    direction TB
+    Enc["Spirit encounter<br/>5 rounds, one form each"] --> R14["Rounds 1–4<br/>equations fly in"]
+    R14 --> Boss["Round 5: boss<br/>forge 3 seals<br/>(order of operations)"]
+    Boss --> Pur["Purified!"] --> Bef["Befriend → companion"]
+  end
+
+  subgraph Class["Practice"]
+    direction TB
+    Stages["Classroom stages 1…n<br/>equations, side by side<br/>with your companion"]
+    Forge["Forge workshop levels 1–6<br/>plus & minus → × → ÷ →<br/>brackets → 4 numbers → master"]
+  end
+
+  MM --> Adv
+  MM --> Class
+  MM --> Journal["Spirit Journal"]
+  MM --> Packs["Worksheets"]
+  Bef -. unlocks .-> Stages
+  Bef -. joins .-> Forge
+  Stages -. pass 9 of 12 .-> Stages
+  Forge -. 6 of 8 clean .-> Forge
+  Stages -. maths stars .-> Bef
+```
 
 ## 1. Component overview
 
@@ -13,7 +51,7 @@ flowchart TB
     subgraph Shell["Shell (src/App.tsx, src/screens)"]
       EB[ErrorBoundary]
       Router[Route state machine]
-      Screens[Profiles · Home · Module · Results · Data]
+      Screens[Profiles · Home · Module · Results · Data · Sound · Game map]
     end
     subgraph Core["src/core"]
       Input[input<br/>InputManager + ControlScheme]
@@ -23,19 +61,28 @@ flowchart TB
       MM2[mental-math<br/>strategies · reasoning · slips]
       Aud[audio<br/>sfx · music · Sound panel]
       Pace[pace<br/>input time model · allowance]
-      UI[ui<br/>Screen, ErrorBoundary]
+      UI[ui<br/>Screen · ErrorBoundary · game kit:<br/>NumberDock · ForgeBoardView · PauseMenu · Hero · ThinkBubble · UmlGraph]
+      MathKit[math<br/>problems · levels · schemas · rng<br/>expression · forge puzzles]
       Store[(IndexedDB 'funl')]
     end
     subgraph Modules["src/modules"]
-      MM[math-monster<br/>Engine · View · Schema]
+      MM[math-monster<br/>Engine · Views · spirits]
+      MD[maze-duel<br/>DuelEngine · board · Glitch AI]
       Next[future modules…]
     end
   end
   Devices[Keyboard · Gamepad · Touch/Mouse] --> Input
   main --> Log & Input & Shell
   Router --> Screens
-  Router -- mounts --> MM
-  Mods -- registry lists --> MM
+  Router -- mounts --> MM & MD
+  Mods -- registry lists --> MM & MD
+  MM & MD -- problems --> MathKit
+  MM & MD -- game kit --> UI
+  MD -- rival reasoning --> MM2
+  MD -- sfx / music --> Aud
+  MD -- input pace --> Pace
+  MD -- actions --> Input
+  MD -- events --> Tele
   MM -- companion reasoning --> MM2
   MM -- sfx / music --> Aud
   MM -- input times / allowance --> Pace
@@ -173,6 +220,11 @@ stateDiagram-v2
   profiles --> home: pick / create
   profiles --> data: 📊 Data
   data --> profiles: back
+  profiles --> sound: 🔊 Sound
+  home --> sound: 🔊 Sound
+  sound --> home: back
+  home --> map: 🗺️ Game map (lazy-loaded)
+  map --> home: back
   home --> module: choose game
   home --> profiles: back
   module --> game: preset / worksheet (creates TelemetrySession)
@@ -190,7 +242,7 @@ Routes are a discriminated union in `App.tsx`. Every route change updates the lo
 stateDiagram-v2
   [*] --> between: start() → level.start (intro)
   between --> playing: intro / K.O. delay elapsed
-  playing --> playing: spawn · answer · timeout
+  playing --> playing: spawn · answer · timeout (Forge boss round = piece moves · check · charge)
   playing --> between: monster defeated → next level.start
   playing --> paused: pause()
   between --> paused: pause()
@@ -293,7 +345,8 @@ Per-device conveniences go in `localStorage`: `funl.lastProfile`, `funl.settings
 1. Create `src/modules/<id>/` with:
    - `engine.ts`: pure logic, emits typed events, with tests in `__tests__/`.
    - `schema.ts`: zod schemas for content packs, if the module accepts content.
-   - `controls.ts`: `extendScheme(baseScheme, …)`, with `help` text for every device.
+   - `controls.ts`: `extendScheme(baseScheme, …)`, with `help` text for every device. A game with stages that need different buttons can have one scheme per stage (Maze Duel switches between answering and placing).
+   - Reuse the kits in `core/`: `core/math` for problems and levels, `core/ui/number-entry` (`NumberDock`) for typing numbers, `PauseMenu`, `Hero`, `ThinkBubble`.
    - `<Name>Game.tsx`: the view. Use `useControlScheme`, `useActions`, a `requestAnimationFrame` loop calling `engine.tick`, and forward engine events to `telemetry.log('<id>.<event>', …)`.
    - `index.ts`: exports the `GameModule` (presets, `settings`, `importPack`, `Component`).
 2. Register it in `src/core/modules/registry.ts`.

@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { SoundPanel } from '../../core/ui/SoundPanel';
-import { useControlScheme, useMenuNavigation } from '../../core/input/hooks';
-import { baseScheme } from '../../core/input/types';
+import { SoundPanel } from './SoundPanel';
+import './game.css';
+import { useControlScheme, useMenuNavigation } from '../input/hooks';
+import { baseScheme } from '../input/types';
 
 export function PauseMenu({
   onResume,

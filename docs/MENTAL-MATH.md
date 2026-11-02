@@ -118,6 +118,17 @@ Tier: 1 = counting-based · 2 = fact-based · 3 = fluent. 📝 = written down as
 
 In the classroom the companion works **one equation at a time**. Its bubble reveals the steps as it thinks, then shows the answer (✓/✗). On a wrong answer, the slip step is highlighted and it says what went wrong. Notes appear on its notepad.
 
+## Order of operations (forge puzzles)
+
+`core/mental-math/order.ts` → `thinkForge(puzzle, { proficiency, wrong, rng })` thinks a Forge puzzle through like a child: "I need to make 20", then a few tries ("Try 2 + 3 × 4", "× first: 3 × 4 = 12", "2 + 12 = 14", "14: too small"), then the answer. Fluent thinkers (proficiency ≥ 0.8) usually see it straight away; beginners try twice first. Calculations are always shown in the real order, with the reason ("× first", "Brackets first").
+
+| Slip | What happens | Label |
+|---|---|---|
+| `left-to-right` | Picks a *trap* arrangement (see FORGE.md) and works it left to right with no rules, which gives the target; the wrong steps are marked | "I went left to right. × and ÷ go first!" (or "Brackets go first!") |
+| `close-enough` | Settles for an arrangement that only comes close | "Close isn't enough: it has to be exactly 20" |
+
+Unmarked calc steps are true (tested). The companion uses it in Forge practice; its bubble hides the strategy name until it answers, so a mistake isn't given away.
+
 ## Adding a strategy
 
 1. Write it in the right file (`addition.ts`, `subtraction.ts`, `multiplication.ts` or `special.ts`): `applies`, `run(e, slip?)` and its `slips`. Use the helpers `calc`, `recall`, `plan` and `answer` from `steps.ts`, and mark notes and slip steps.

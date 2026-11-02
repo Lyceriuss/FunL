@@ -20,8 +20,12 @@ export interface SpiritProgress {
   version: 1;
   spirits: Record<string, SpiritRecord>;
   companion: string | null;
-  /** Practice classroom: highest stage the player may start from. */
-  classroom?: { unlocked: number };
+  /**
+   * Practice classroom: highest equation stage the player may start from, and
+   * the highest Forge practice level unlocked (separate ladders).
+   * `forgeTier` is the v0.12 adaptive tier, read once by forgeUnlockedOf.
+   */
+  classroom?: { unlocked: number; forgeUnlocked?: number; forgeTier?: number };
 }
 
 const MODULE_ID = 'math-monster';
@@ -96,5 +100,20 @@ export function classroomUnlocked(p: SpiritProgress): number {
 /** Passing a stage unlocks the next one. */
 export function recordStage(p: SpiritProgress, stage: number, passed: boolean): SpiritProgress {
   const unlocked = Math.max(classroomUnlocked(p), passed ? stage + 1 : stage);
-  return { ...p, classroom: { unlocked } };
+  return { ...p, classroom: { ...p.classroom, unlocked } };
+}
+
+/** Highest Forge practice level unlocked (1–6). Saves from v0.12 kept an adaptive tier 1–4 instead. */
+export function forgeUnlockedOf(p: SpiritProgress): number {
+  const c = p.classroom;
+  if (c?.forgeUnlocked) return Math.max(1, Math.min(6, c.forgeUnlocked));
+  // v0.12 tiers: 1 plus/minus, 2 × before +, 3 brackets, 4 four numbers → v0.13 levels 1, 2, 4, 5.
+  const old = c?.forgeTier;
+  return old ? ([1, 1, 2, 4, 5][old] ?? 1) : 1;
+}
+
+/** A finished Forge lesson: passing unlocks the next level. */
+export function recordForgeLesson(p: SpiritProgress, tier: number, passed: boolean): SpiritProgress {
+  const unlocked = Math.min(6, Math.max(forgeUnlockedOf(p), passed ? tier + 1 : tier));
+  return { ...p, classroom: { unlocked: classroomUnlocked(p), ...p.classroom, forgeUnlocked: unlocked } };
 }

@@ -8,7 +8,9 @@ import type { MathOptions } from './options';
 import { Stars } from './PracticeGame';
 import { SpiritJournal } from './SpiritJournal';
 import { deleteProgress } from '../../core/telemetry/storage';
-import { classroomUnlocked, emptyProgress, loadSpirits, masteryOf, saveSpirits, type SpiritProgress } from './spirits';
+import { classroomUnlocked, emptyProgress, forgeUnlockedOf, loadSpirits, masteryOf, saveSpirits, type SpiritProgress } from './spirits';
+import { FORGE_MAX_TIER, FORGE_TIERS, type ForgeTier } from '../../core/math/forge';
+import { CLEAN_TRIES, FORGE_PRACTICE_LENGTH, PASS_CLEAN } from './forgePractice';
 
 const log = getLogger('math-monster.hub');
 
@@ -56,6 +58,7 @@ export function MathHub({ profileId, onStart }: { profileId: string; onStart: (o
   return (
     <>
       <PracticeSection progress={progress} onStart={onStart} />
+      <ForgeSection progress={progress} onStart={onStart} />
       <SpiritJournal progress={progress} onChange={change} />
       <ResetProgress onReset={reset} />
     </>
@@ -106,6 +109,50 @@ function PracticeSection({ progress, onStart }: { progress: SpiritProgress; onSt
         </div>
       </div>
       <StageLadder unlocked={classroomUnlocked(progress)} onPlay={(stage) => onStart({ mode: 'practice', stage, companionId: pal.id })} />
+    </section>
+  );
+}
+
+/**
+ * Forge workshop: order-of-operations practice with its own ladder of levels
+ * (separate from the classroom stages). Open to everyone; the companion
+ * joins once there is one.
+ */
+function ForgeSection({ progress, onStart }: { progress: SpiritProgress; onStart: (o: MathOptions) => void }) {
+  const pal = progress.companion ? getCreature(progress.companion) : undefined;
+  const unlocked = forgeUnlockedOf(progress) as ForgeTier;
+  const play = (tier: number) => onStart({ mode: 'forge', companionId: pal?.id ?? null, tier });
+  const top = unlocked >= FORGE_MAX_TIER;
+  return (
+    <section>
+      <h2 className="section-title">Forge workshop</h2>
+      <p className="muted forge-intro">
+        Put numbers, signs and brackets in the right order so they make the target number.{' '}
+        {pal ? `${pal.name} forges with you and thinks out loud.` : 'You practise alone for now: befriend a spirit in Adventure and it will join you.'}
+      </p>
+      <button type="button" className="card card--practice practice-continue forge-card" data-focusable onClick={() => play(unlocked)}>
+        <span className="card__title">
+          🔨 {unlocked === 1 ? 'Start' : 'Continue'}: level {unlocked} · {FORGE_TIERS[unlocked].label}
+        </span>
+        <span className="card__desc">
+          {FORGE_TIERS[unlocked].hint} · {FORGE_PRACTICE_LENGTH} puzzles
+          {top ? ' · top level' : ` · forge ${PASS_CLEAN} cleanly (within ${CLEAN_TRIES} tries, no hint) to unlock level ${unlocked + 1}`}
+        </span>
+      </button>
+      <div className="stage-chips forge-ladder" role="group" aria-label="Forge levels">
+        <span className="muted">Levels:</span>
+        {([1, 2, 3, 4, 5, 6] as ForgeTier[]).map((t) =>
+          t <= unlocked ? (
+            <button key={t} type="button" className={`chip ${t === unlocked ? 'is-current' : ''}`} data-focusable title={FORGE_TIERS[t].hint} onClick={() => play(t)}>
+              {t} · {FORGE_TIERS[t].label}
+            </button>
+          ) : (
+            <span key={t} className="chip is-locked" aria-label={`Level ${t} locked`}>
+              🔒 {t} · {FORGE_TIERS[t].label}
+            </span>
+          ),
+        )}
+      </div>
     </section>
   );
 }

@@ -1,13 +1,8 @@
 import { baseScheme, extendScheme, PadButton, type Action } from '../../core/input/types';
+import { NumberAction } from '../../core/ui/number-entry/actions';
 
-/** Module actions. The on-screen keypad dispatches the same ones on touch. */
-export const MathAction = {
-  digit: (value: number): Action => ({ type: 'math.digit', value }),
-  backspace: { type: 'math.backspace' } as Action,
-  submit: { type: 'math.submit' } as Action,
-  /** Controller: type the digit selected on the radial dial. */
-  press: { type: 'math.press' } as Action,
-};
+/** Module actions (shared number-entry actions). */
+export const MathAction = NumberAction;
 
 const digitKeys: Record<string, Action> = {};
 for (let d = 0; d <= 9; d++) digitKeys[String(d)] = MathAction.digit(d);

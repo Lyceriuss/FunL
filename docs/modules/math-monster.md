@@ -1,20 +1,18 @@
 # Module: Math Monster (`math-monster`)
 
-Mental arithmetic as an anime battle. Corrupted **spirits** hurl equations at the hero, and the child types the answer before they land. Each spirit is fought over a 5-round **encounter**: every round it takes a less menacing, cuter form. In the final boss round its last Static shard breaks, the spirit is **purified**, and it can be **befriended** as a companion. Lore: [docs/lore/WORLD.md](../lore/WORLD.md).
+Mental arithmetic as an anime battle. Corrupted **spirits** hurl equations at the hero, and the child types the answer before they land. Each spirit is fought over a 5-round **encounter**: every round it takes a less menacing, cuter form. In the final boss round the child **forges seals** (order-of-operations puzzles, see [FORGE.md](../FORGE.md)) to break its last Static shard, the spirit is **purified**, and it can be **befriended** as a companion. Lore: [docs/lore/WORLD.md](../lore/WORLD.md).
 
 ## Files
 
 | File | Role |
 |---|---|
 | `index.ts` | `GameModule` definition: presets, settings, `importPack` |
-| `engine.ts` | **Pure game rules.** Lanes, spawning, answers, scoring, lives, levels, encounters/rounds/boss, events |
-| `levels.ts` | Default difficulty curve (10 stages) + `levelAt()` endless extension |
-| `problems.ts` | `ProblemSource` implementations: `GeneratedSource` (random by rules), `PackSource` (fixed worksheet) |
-| `schema.ts` | zod schemas: `OpRule`, `LevelConfig`, `MathPack`; `parseMathPack`, `solve`, `makeProblem` |
-| `rng.ts` | Seeded PRNG (mulberry32). The engine never uses `Math.random` |
+| `engine.ts` | **Pure game rules.** Lanes, spawning, answers, scoring, lives, levels, encounters/rounds/boss, Forge boss rounds (`forge` option), events |
+| `forgePractice.ts` | **Pure Forge practice session:** your puzzles (adaptive tier, hints) and the companion's (`thinkForge`), events |
+| `ForgePracticeGame.tsx` | Forge practice view (classroom): your `ForgeBoardView`, the companion's mini board and thought bubble |
+| `core/math/*` (shared) | `levels.ts` default difficulty curve (10 stages) + `levelAt()`; `problems.ts` `GeneratedSource` / `PackSource`; `schema.ts` zod schemas (`OpRule`, `LevelConfig`, `MathPack`, `parseMathPack`, `makeProblem`); `rng.ts` seeded PRNG; `difficulty.ts` |
 | `summary.ts` | Session summary for results and storage (see TELEMETRY.md) |
 | `controls.ts` | `MathAction` + `mathControls` scheme |
-| `keypadLayout.ts` | Keypad keys, cursor movement, action ↔ key lookup |
 | `MathMonsterGame.tsx` | Module entry: picks the mode component |
 | `options.ts` | `MathOptions` (adventure · pack · practice), `createEngine`, `normalTravelMs` |
 | `useMathSession.ts` | Shared hook for all modes: frame loop, input → engine, keypad state, telemetry wiring, finish |
@@ -23,14 +21,13 @@ Mental arithmetic as an anime battle. Corrupted **spirits** hurl equations at th
 | `classroom.ts` | Classroom stage ladder: topic/pace/lanes/speed per stage, pass threshold |
 | `companion.ts` | **Companion skill model** (pure): difficulty, think time, accuracy; reasoning (right or with a slip) comes from `core/mental-math` |
 | `MathHub.tsx` | Module `Hub`: practice classroom section (empty hall without a companion) + Spirit Journal + Reset progress; owns spirit progress loading |
-| `Dock.tsx`, `PauseMenu.tsx` | Shared answer dock (keypad for touch, radial dial for controllers, compact for keyboard) and pause menu |
-| `Dial.tsx`, `dialLayout.ts` | Controller radial number dial and its geometry (angle → digit) |
+| `Dock.tsx` | `AnswerDock`: the shared `core/ui/number-entry/NumberDock` (keypad for touch, radial dial for controllers, compact for keyboard) fed from the engine. Pause menu: `core/ui/PauseMenu` |
 | `creatures.ts` | **Spirit data**: names, 5 forms (title + banner line), colours, personality, story. The lore source of truth |
 | `spirits.ts` | Per-player spirit progress (met / best form / purified / companion): pure functions + load/save via core `progress` store |
 | `Creature.tsx` | Procedural creature art: one `form` (0–4) drives every feature from menacing to cute; `shard` = boss crown |
 | `Befriend.tsx` | Post-boss story dialog: befriend / not now |
 | `SpiritJournal.tsx` | Journal (presentational): collection, stories, maths stars, companion choice |
-| `Keypad.tsx`, `Art.tsx` | Presentational: keypad, SVG hero |
+| (shared) | Keypad and dial: `core/ui/number-entry`; SVG heroine: `core/ui/Hero.tsx`; thought bubble: `core/ui/ThinkBubble.tsx` |
 | `mathMonster.css` | All module styles (`mm-` prefix) |
 | `__tests__/engine.test.ts` | Engine, generator, encounter/boss, pack tests |
 | `__tests__/spirits.test.ts` | Roster shape, colour interpolation, progress rules |
@@ -148,7 +145,8 @@ stateDiagram-v2
 - **Travel time:** `level.travelMs × speedUp^hitsThisLevel × (1 + 0.35 × (lanes − 1)) ÷ speedMultiplier`, with a floor of 1200 ms. `speedUp` defaults to 0.95; packs can set their own.
 - **Points:** `(10 + 2·level + round(20·(1 − progress)) + 5·(concurrent − 1)) × (1 + 0.1·min(streak − 1, 10))`.
 - **Effects:** "CRITICAL!" when answered at `progress < 0.35`. The view derives every animation from `state.effects` (the last 12 outcomes), so the engine stays UI-free.
-- **Boss rounds** (last round of each encounter): `hitsToDefeat × 1.3` (rounded up), same lanes and pace as the stage (v0.9: no extra lane), and a 3.2 s post-defeat pause instead of 1.8 s.
+- **Boss rounds** (last round of each encounter): in Adventure (v0.12) they are **Forge rounds**: no equations fly; the child forges `FORGE_SEALS` = 3 puzzles (each = one hit). Tier by level: `ceil(level / 5)` up to 6 (plus & minus, × before +, ÷, brackets, four numbers, master). The spirit's attack charges over `FORGE_CHARGE_MS` (30/36/40/45/55/60 s per tier) × the **Forge time** setting (Relaxed 1.5 · Normal 1 · Quick 0.7) ÷ speed setting + the input-pace allowance (pieces × 0.6 × one-digit allowance); a full charge costs a life and restarts, the puzzle stays. The time left is shown as a countdown inside the equation row. A seal scores `(40 + 15 × tier + 30 × (1 − charge)) × streak bonus`. Controls switch to `forgeControls` for the round (imperatively, every frame). Without the `forge` option (packs, older tests) boss rounds are `hitsToDefeat × 1.3` equations. Either way a 3.2 s post-defeat pause follows.
+- **Forge workshop** (`mode: 'forge'`, its own hub section, open to everyone): a lesson = 8 puzzles at one level of the Forge ladder (1–6, `classroom.forgeUnlocked`), no timer (a stopwatch in the row). A hint after 2 wrong tries. **Clean** = sealed within `CLEAN_TRIES` = 2 tries, no hint; `PASS_CLEAN` = 6 clean passes and unlocks the next level. The lesson ends when you finish; the lesson-end menu offers next level / again / done. With a companion (`companionId`), it forges its own puzzles alongside you; without one (`companionId: null`) you practise alone. The companion's think time = `(5 s + 2.5 s × tier) × (1.4 − 0.8 × skill) × jitter × steps factor`, right with `max(0.25, 1 − (0.25 + 0.12 × tier)(1 − skill))`; it lays its pieces down in the last third of its thinking.
 - **Levels:** see the table below. Past stage 10, `levelAt()` repeats the last rules, is 12% faster per stage (floor 2000 ms) and adds a lane every 3 stages (max 4).
 
 | Stage | Name | Content | travelMs | Hits | Lanes (auto) |

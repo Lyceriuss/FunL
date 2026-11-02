@@ -7,20 +7,27 @@ export function HomeScreen({
   onModule,
   onSwitchProfile,
   onSound,
+  onMap,
 }: {
   profile: Profile;
   onModule: (id: string) => void;
   onSwitchProfile: () => void;
   onSound: () => void;
+  onMap: () => void;
 }) {
   return (
     <Screen
       title={`Hi ${profile.name}! ${profile.avatar}`}
       onBack={onSwitchProfile}
       actions={
-        <button type="button" className="btn btn--ghost" data-focusable onClick={onSound}>
-          🔊 Sound
-        </button>
+        <>
+          <button type="button" className="btn btn--ghost" data-focusable onClick={onMap}>
+            🗺️ Game map
+          </button>
+          <button type="button" className="btn btn--ghost" data-focusable onClick={onSound}>
+            🔊 Sound
+          </button>
+        </>
       }
     >
       <div className="card-grid">

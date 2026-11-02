@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { MASTERY_MAX, attempt, difficulty } from '../companion';
-import { DEFAULT_LEVELS } from '../levels';
-import { GeneratedSource } from '../problems';
-import { createRng } from '../rng';
-import { makeProblem } from '../schema';
+import { DEFAULT_LEVELS } from '../../../core/math/levels';
+import { GeneratedSource } from '../../../core/math/problems';
+import { createRng } from '../../../core/math/rng';
+import { makeProblem } from '../../../core/math/schema';
 
 const NORMAL = 10_000;
 

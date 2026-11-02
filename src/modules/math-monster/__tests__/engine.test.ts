@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { KNOCKBACK, MathMonsterEngine, type EngineEvent } from '../engine';
-import { DEFAULT_LEVELS, levelAt } from '../levels';
-import { GeneratedSource, PackSource, generate, levelsForPack } from '../problems';
-import { createRng } from '../rng';
-import { parseMathPack, type LevelConfig } from '../schema';
+import { DEFAULT_LEVELS, levelAt } from '../../../core/math/levels';
+import { GeneratedSource, PackSource, generate, levelsForPack } from '../../../core/math/problems';
+import { createRng } from '../../../core/math/rng';
+import { parseMathPack, type LevelConfig } from '../../../core/math/schema';
 
 function setup(levels: LevelConfig[] = DEFAULT_LEVELS, lives = 3) {
   const engine = new MathMonsterEngine({ levels, source: new GeneratedSource(42), lives });

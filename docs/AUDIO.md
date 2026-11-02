@@ -30,6 +30,9 @@
 | companionWrong | companion slips | Aww (sympathetic) · Hmm? (curious) · Soft boop (gentle) | aww |
 | menuMove | controller/arrow focus moves | Soft tick (subtle) · Blip (techy) · Wood block (warm) | tick |
 | menuSelect | controller/keyboard presses a button | Confirm (positive) · Pop (light) · Click (subtle) | confirm |
+| piecePick | Forge: picking up a piece | Soft lift (light) · Bubble (playful) · Tap (subtle) | lift |
+| pieceSnap | Forge: a piece snaps into the row | Magnet snap (satisfying) · Wooden click (warm) · Crystal tick (magical) | snap |
+| sealForged | Forge: the row makes exactly the target | Magic anvil (triumphant) · Bright chord (happy) · Sparkle rise (magical) | anvil |
 
 | Music slot | Plays in | Default track |
 |---|---|---|
@@ -37,8 +40,11 @@
 | adventure | normal adventure rounds | Brave adventure (brave, 112 bpm) |
 | boss | the final round of an encounter | Tense pulse (tense, 128 bpm) |
 | classroom | practice classroom | Lo-fi study (focused, 80 bpm) |
+| duel | Maze Duel | Puzzle chase (playful & tense, 104 bpm) |
 
 Also available for any slot: **Sunny walk** (cheerful, 100 bpm) and **Silent**.
+
+Maze Duel reuses the effect slots: correct / wrong for your answers, menuMove when you aim at a square, menuSelect when you place a piece, lifeLost when Glitch drops a stone on you, roundClear when you win and gameOver when Glitch wins.
 
 ## Adding a sound
 

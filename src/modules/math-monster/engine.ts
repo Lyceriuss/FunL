@@ -1,6 +1,25 @@
-import { levelAt } from './levels';
-import type { ProblemSource } from './problems';
-import type { LevelConfig, MathProblem } from './schema';
+import { pieceText } from '../../core/math/expression';
+import {
+  forgeCheck,
+  forgeDrop,
+  forgeNav,
+  forgePrimary,
+  forgeQuick,
+  forgeSecondary,
+  forgeStash,
+  forgeTake,
+  generateForgePuzzle,
+  newBoard,
+  type ForgeBoard,
+  type ForgeCheck,
+  type ForgeMove,
+  type ForgeTier,
+  type ForgeZone,
+} from '../../core/math/forge';
+import { levelAt } from '../../core/math/levels';
+import { createRng, type Rng } from '../../core/math/rng';
+import type { ProblemSource } from '../../core/math/problems';
+import type { LevelConfig, MathProblem } from '../../core/math/schema';
 
 /**
  * Pure game logic for Math Monster: no DOM, no timers. The view calls
@@ -52,6 +71,64 @@ export interface EngineConfig {
   maxInputLength?: number;
   /** Rounds per creature encounter; the last one is the boss round. Default 5. */
   roundsPerEncounter?: number;
+  /**
+   * Boss rounds become Forge rounds: build the seal number from pieces
+   * (order of operations) before the spirit's attack charges. Off when omitted.
+   */
+  forge?: ForgeConfig;
+}
+
+export interface ForgeConfig {
+  /** Seed for the puzzles. */
+  seed: number;
+  /** Seals to forge to break the shard (default FORGE_SEALS). */
+  seals?: number;
+  /** Puzzle tier for a level (default forgeTierFor). */
+  tierFor?: (level: number) => ForgeTier;
+  /** Charge time before the spirit attacks (default FORGE_CHARGE_MS, divided by the speed setting). */
+  chargeMs?: (tier: ForgeTier) => number;
+  /** Forge time setting: multiplies the charge time (1.5 relaxed, 1 normal, 0.7 quick). */
+  timeScale?: number;
+  /** Extra charge time for the player's input pace, by number of pieces (see core/pace). */
+  allowance?: (pieces: number) => number;
+}
+
+/** One Forge (boss) puzzle in progress. */
+export interface ForgeRound {
+  id: number;
+  board: ForgeBoard;
+  tier: ForgeTier;
+  /** The spirit's attack charge, 0..1. Full = a life lost, and it charges again. */
+  charge: number;
+  chargeMs: number;
+  startedAt: number;
+  /** Checks with every piece placed. */
+  tries: number;
+  chargesLost: number;
+  feedback: { check: ForgeCheck; key: number; at: number } | null;
+  /** Set when sealed: the next puzzle comes shortly after. */
+  sealedAt: number | null;
+}
+
+export interface ForgeRecord {
+  key: string;
+  tier: ForgeTier;
+  target: number;
+  tries: number;
+  ms: number;
+  chargesLost: number;
+}
+
+/** Seals to forge in a boss round. */
+export const FORGE_SEALS = 3;
+/** Base charge time per tier (ms) at normal speed. */
+export const FORGE_CHARGE_MS: Record<ForgeTier, number> = { 1: 30000, 2: 36000, 3: 40000, 4: 45000, 5: 55000, 6: 60000 };
+/** How long a forged seal glows before the next puzzle. */
+export const FORGE_SEALED_MS = 1000;
+
+/** Puzzle tier by level: one step up every encounter (5 levels), up to the top tier. */
+export function forgeTierFor(level: number): ForgeTier {
+  return Math.min(6, Math.max(1, Math.ceil(level / 5))) as ForgeTier;
 }
 
 export interface ActiveProblem {
@@ -102,11 +179,15 @@ export interface EngineState {
   input: string;
   active: ActiveProblem[];
   effects: Effect[];
+  /** The Forge puzzle while in a Forge boss round. */
+  forge: ForgeRound | null;
   stats: {
     correct: number;
     wrong: number;
     timeouts: number;
     solved: SolvedRecord[];
+    /** Sealed Forge puzzles. */
+    forge: ForgeRecord[];
   };
 }
 
@@ -207,6 +288,22 @@ export type EngineEvent =
       concurrent: number;
     }
   | { type: 'life.lost'; lives: number }
+  | { type: 'forge.start'; id: number; key: string; target: number; tier: ForgeTier; pieces: string; chargeMs: number; allowanceMs: number }
+  | { type: 'forge.move'; id: number; move: 'pick' | 'place' | 'return' | 'cancel'; piece: string; from?: ForgeZone; gap?: number; row: string }
+  | {
+      type: 'forge.check';
+      id: number;
+      key: string;
+      status: ForgeCheck['status'];
+      value: number | null;
+      text: string | null;
+      error: string | null;
+      tries: number;
+      ms: number;
+      charge: number;
+    }
+  | { type: 'forge.sealed'; id: number; key: string; target: number; tier: ForgeTier; tries: number; ms: number; charge: number; chargesLost: number; points: number }
+  | { type: 'forge.charge'; id: number; key: string }
   | { type: 'lives.refill'; lives: number; restored: number }
   | { type: 'monster.defeated'; level: number; encounter: number; round: number; boss: boolean }
   | { type: 'game.pause'; reason: PauseReason }
@@ -250,6 +347,8 @@ export class MathMonsterEngine {
   private unlimitedLives: boolean;
   private refillLives: boolean;
   private roundsPerEncounter: number;
+  private forgeCfg: ForgeConfig | null;
+  private forgeRng: Rng;
   private startLevelNum: number;
   private betweenUntil = 0;
   private nextSpawnAt = 0;
@@ -277,6 +376,8 @@ export class MathMonsterEngine {
     this.unlimitedLives = cfg.unlimitedLives ?? false;
     this.refillLives = cfg.refillLives ?? true;
     this.roundsPerEncounter = Math.max(1, cfg.roundsPerEncounter ?? 5);
+    this.forgeCfg = cfg.forge ?? null;
+    this.forgeRng = createRng(cfg.forge?.seed ?? 1);
     const level = cfg.startLevel ?? 1;
     this.startLevelNum = level;
     const pos = this.positionOf(level);
@@ -298,7 +399,8 @@ export class MathMonsterEngine {
       input: '',
       active: [],
       effects: [],
-      stats: { correct: 0, wrong: 0, timeouts: 0, solved: [] },
+      forge: null,
+      stats: { correct: 0, wrong: 0, timeouts: 0, solved: [], forge: [] },
     };
   }
 
@@ -329,6 +431,11 @@ export class MathMonsterEngine {
       if (s.time < this.betweenUntil) return;
       s.phase = 'playing';
       this.nextSpawnAt = s.time;
+    }
+
+    if (this.isForgeRound()) {
+      this.tickForge(dt);
+      return;
     }
 
     for (const p of s.active) {
@@ -498,13 +605,20 @@ export class MathMonsterEngine {
     s.active = s.active.filter((p) => p !== target);
     // Knockback: the others get pushed back so the player can claw back time.
     if (this.knockback > 0) for (const p of s.active) p.recoil += this.knockback;
+    const fast = target.progress < 0.35;
+    if (!this.hitMonster({ lane: target.lane, progress: target.progress, points, fast })) {
+      if (s.active.length === 0) this.nextSpawnAt = Math.min(this.nextSpawnAt, s.time + FIRST_SPAWN_GAP_MS);
+    }
+  }
+
+  /** The monster takes a hit; returns true when that defeated it (next round scheduled). */
+  private hitMonster(fx: { lane: number | null; progress: number | null; points: number; fast: boolean }): boolean {
+    const s = this.state;
     s.monsterHp--;
     this.hitsThisLevel++;
-    const fast = target.progress < 0.35;
-
     if (s.monsterHp <= 0) {
       const wasBoss = s.boss;
-      this.effect({ outcome: 'defeated', lane: target.lane, progress: target.progress, points, fast });
+      this.effect({ outcome: 'defeated', ...fx });
       this.emit({ type: 'monster.defeated', level: s.level, encounter: s.encounter, round: s.round, boss: s.boss });
       s.level++;
       Object.assign(s, this.positionOf(s.level));
@@ -515,10 +629,10 @@ export class MathMonsterEngine {
       const delay = wasBoss ? BOSS_DEFEAT_MS : DEFEAT_MS;
       if (this.source.remaining() !== 0) this.startLevel(delay);
       else this.toBetween(delay);
-    } else {
-      this.effect({ outcome: 'correct', lane: target.lane, progress: target.progress, points, fast });
-      if (s.active.length === 0) this.nextSpawnAt = Math.min(this.nextSpawnAt, s.time + FIRST_SPAWN_GAP_MS);
+      return true;
     }
+    this.effect({ outcome: 'correct', ...fx });
+    return false;
   }
 
   pause(reason: PauseReason = 'player'): void {
@@ -560,11 +674,13 @@ export class MathMonsterEngine {
   private configFor(level: number, boss: boolean): LevelConfig {
     const base = levelAt(this.levels, level);
     if (!boss) return base;
+    if (this.forgeCfg) return { ...base, hitsToDefeat: this.forgeCfg.seals ?? FORGE_SEALS };
     return { ...base, hitsToDefeat: Math.ceil(base.hitsToDefeat * BOSS_HP_FACTOR) };
   }
 
   private startLevel(delay: number): void {
     const s = this.state;
+    s.forge = null;
     // A fresh round, a fresh start: refill lives.
     if (this.refillLives && this.started && s.lives < s.maxLives && !this.unlimitedLives) {
       const restored = s.maxLives - s.lives;
@@ -649,15 +765,175 @@ export class MathMonsterEngine {
       this.nextSpawnAt = Math.max(this.nextSpawnAt, s.time + 900);
       return;
     }
+    if (this.loseLife()) return;
+    this.nextSpawnAt = Math.max(this.nextSpawnAt, s.time + 900);
+  }
+
+  /** Lose a life; returns true when that was the last one (game over). */
+  private loseLife(): boolean {
+    const s = this.state;
     s.lives--;
     this.emit({ type: 'life.lost', lives: s.lives });
-    if (s.lives <= 0) {
-      s.phase = 'gameover';
-      s.active = [];
-      this.emit({ type: 'game.over', score: s.score, level: s.level });
+    if (s.lives > 0) return false;
+    s.phase = 'gameover';
+    s.active = [];
+    this.emit({ type: 'game.over', score: s.score, level: s.level });
+    return true;
+  }
+
+  // ---------------------------------------------------------------- Forge (boss) rounds
+
+  /** Is the current round a Forge round? */
+  isForgeRound(): boolean {
+    return this.forgeCfg !== null && this.state.boss;
+  }
+
+  private tickForge(dt: number): void {
+    const s = this.state;
+    const f = s.forge;
+    if (!f) return this.newForgePuzzle();
+    if (f.sealedAt !== null) {
+      if (s.time - f.sealedAt >= FORGE_SEALED_MS) this.newForgePuzzle();
       return;
     }
-    this.nextSpawnAt = Math.max(this.nextSpawnAt, s.time + 900);
+    f.charge = Math.min(1, f.charge + dt / f.chargeMs);
+    if (f.charge >= 1) {
+      // The spirit attacks: a life lost, the puzzle stays, the charge starts again.
+      f.charge = 0;
+      f.chargesLost++;
+      this.effect({ outcome: 'timeout', lane: null, progress: 1 });
+      this.emit({ type: 'forge.charge', id: f.id, key: f.board.puzzle.key });
+      this.loseLife();
+    }
+  }
+
+  private newForgePuzzle(): void {
+    const s = this.state;
+    const cfg = this.forgeCfg!;
+    const tier = (cfg.tierFor ?? forgeTierFor)(s.level);
+    const puzzle = generateForgePuzzle(this.forgeRng, tier);
+    const allowanceMs = Math.max(0, Math.round(cfg.allowance?.(puzzle.pieces.length) ?? 0));
+    const chargeMs = Math.round(((cfg.chargeMs?.(tier) ?? FORGE_CHARGE_MS[tier]) * (cfg.timeScale ?? 1)) / this.speedMultiplier) + allowanceMs;
+    const id = this.nextId++;
+    s.forge = { id, board: newBoard(puzzle), tier, charge: 0, chargeMs, startedAt: s.time, tries: 0, chargesLost: 0, feedback: null, sealedAt: null };
+    this.emit({
+      type: 'forge.start',
+      id,
+      key: puzzle.key,
+      target: puzzle.target,
+      tier,
+      pieces: puzzle.pieces.map(pieceText).join(' '),
+      chargeMs,
+      allowanceMs,
+    });
+  }
+
+  /** The Forge board, if the player can act on it right now. */
+  private forgeBoard(): ForgeRound | null {
+    const s = this.state;
+    return s.phase === 'playing' && s.forge && s.forge.sealedAt === null ? s.forge : null;
+  }
+
+  private applyForge(r: { board: ForgeBoard; move: ForgeMove }): boolean {
+    const f = this.forgeBoard();
+    if (!f) return false;
+    f.board = r.board;
+    const m = r.move;
+    if (m.kind === 'pick' || m.kind === 'place' || m.kind === 'return' || m.kind === 'cancel') {
+      if (f.feedback && f.feedback.check.status !== 'right') f.feedback = null;
+      const p = f.board.puzzle.pieces;
+      this.emit({
+        type: 'forge.move',
+        id: f.id,
+        move: m.kind,
+        piece: pieceText(p[m.piece]),
+        ...(m.kind === 'pick' ? { from: m.from } : {}),
+        ...(m.kind === 'place' ? { gap: m.gap } : {}),
+        row: f.board.row.map((id) => pieceText(p[id])).join(' '),
+      });
+    }
+    return m.kind !== 'none';
+  }
+
+  forgeNav(dir: 'up' | 'down' | 'left' | 'right'): boolean {
+    const f = this.forgeBoard();
+    return f ? this.applyForge(forgeNav(f.board, dir)) : false;
+  }
+  /** A: pick up / place. */
+  forgePrimary(): boolean {
+    const f = this.forgeBoard();
+    return f ? this.applyForge(forgePrimary(f.board)) : false;
+  }
+  /** X: put back. */
+  forgeSecondary(): boolean {
+    const f = this.forgeBoard();
+    return f ? this.applyForge(forgeSecondary(f.board)) : false;
+  }
+  forgeTake(pieceId: number): boolean {
+    const f = this.forgeBoard();
+    return f ? this.applyForge(forgeTake(f.board, pieceId)) : false;
+  }
+  forgeDrop(gap: number): boolean {
+    const f = this.forgeBoard();
+    return f ? this.applyForge(forgeDrop(f.board, gap)) : false;
+  }
+  forgeStash(): boolean {
+    const f = this.forgeBoard();
+    return f ? this.applyForge(forgeStash(f.board)) : false;
+  }
+  forgeQuick(symbol: string): boolean {
+    const f = this.forgeBoard();
+    return f ? this.applyForge(forgeQuick(f.board, symbol)) : false;
+  }
+
+  /** Y: check the row. Right = a seal is forged (a hit on the boss). */
+  forgeCheck(): ForgeCheck | null {
+    const s = this.state;
+    const f = this.forgeBoard();
+    if (!f) return null;
+    const check = forgeCheck(f.board);
+    if (check.status !== 'incomplete') f.tries++;
+    f.feedback = { check, key: this.nextId++, at: s.time };
+    const ms = round1(s.time - f.startedAt);
+    const key = f.board.puzzle.key;
+    this.emit({
+      type: 'forge.check',
+      id: f.id,
+      key,
+      status: check.status,
+      value: check.status === 'right' || check.status === 'wrong' ? check.value : null,
+      text: check.status === 'right' || check.status === 'wrong' ? check.text : null,
+      error: check.status === 'invalid' ? check.error.code : null,
+      tries: f.tries,
+      ms,
+      charge: round(f.charge),
+    });
+    if (check.status === 'wrong' || check.status === 'invalid') {
+      s.streak = 0;
+      this.effect({ outcome: 'wrong', lane: null, progress: null });
+    }
+    if (check.status !== 'right') return check;
+
+    s.streak++;
+    s.bestStreak = Math.max(s.bestStreak, s.streak);
+    const points = Math.round((40 + f.tier * 15 + Math.round(30 * (1 - f.charge))) * (1 + Math.min(s.streak - 1, 10) * 0.1));
+    s.score += points;
+    s.stats.forge.push({ key, tier: f.tier, target: f.board.puzzle.target, tries: f.tries, ms, chargesLost: f.chargesLost });
+    f.sealedAt = s.time;
+    this.emit({
+      type: 'forge.sealed',
+      id: f.id,
+      key,
+      target: f.board.puzzle.target,
+      tier: f.tier,
+      tries: f.tries,
+      ms,
+      charge: round(f.charge),
+      chargesLost: f.chargesLost,
+      points,
+    });
+    this.hitMonster({ lane: null, progress: null, points, fast: f.charge < 0.35 });
+    return check;
   }
 
   private toBetween(ms: number): void {

@@ -4,7 +4,7 @@ This is the entry point for anyone changing this repo, human or AI agent. Read i
 
 ## What this is
 
-FunL is a gamified learning web app for school-age children. Each subject is a **game module**. A shared **shell** provides input (touch, keyboard, gamepad), player profiles, menus, play-data recording (**telemetry**) and diagnostics (**logs**). Module 1 is **Math Monster**: mental arithmetic as an anime-style battle. The player purifies corrupted spirits (5 forms each, from menacing to cute) and can befriend them as companions. See [docs/lore/WORLD.md](docs/lore/WORLD.md).
+FunL is a gamified learning web app for school-age children. Each subject is a **game module**. A shared **shell** provides input (touch, keyboard, gamepad), player profiles, menus, play-data recording (**telemetry**) and diagnostics (**logs**). Module 1 is **Math Monster**: mental arithmetic as an anime-style battle. The player purifies corrupted spirits (5 forms each, from menacing to cute; boss rounds are **forge puzzles** on the order of operations) and can befriend them as companions. See [docs/lore/WORLD.md](docs/lore/WORLD.md).
 
 We treat this like game development: every change ships with a **patch note** in [PATCHNOTES.md](PATCHNOTES.md).
 
@@ -38,10 +38,15 @@ src/
     mental-math/           How people calculate: strategies, reasoning steps, notes and typical slips (docs/MENTAL-MATH.md)
     audio/                 Synthesised sound effects + generative music by mood, settings, Sound panel (docs/AUDIO.md)
     pace/                  Input pace: time to enter an answer per player/device/length → extra time per equation (docs/INPUT-PACE.md)
-    ui/                    Screen wrapper (controller menu navigation), ErrorBoundary
+    math/                  Shared maths: problems + generators, level rules, pack schemas (zod), seeded RNG, difficulty,
+                           expressions with order of operations (expression.ts) and Forge puzzles (forge.ts, docs/FORGE.md)
+    ui/                    Screen wrapper (controller menu navigation), ErrorBoundary, and the game UI kit:
+                           number-entry/ (keypad, radial dial, NumberDock), forge/ (ForgeBoardView, forgeControls),
+                           PauseMenu, Hero, ThinkBubble, useFlip, game.css, uml/ (UmlGraph: Mermaid diagrams)
   modules/
-    math-monster/          Module 1. Pure engine, modes (Adventure, Practice classroom), spirits, companion skill model. See docs/modules/math-monster.md
-  screens/                 Shell screens: Profiles, Home, Module (setup + module Hub), Results, Data
+    math-monster/          Pure engine (incl. Forge boss rounds), modes (Adventure, Practice classroom, Forge practice), spirits, companion skill model. See docs/modules/math-monster.md
+    maze-duel/             Race Glitch through a number maze: board generator, DuelEngine, rival planner. See docs/modules/maze-duel.md
+  screens/                 Shell screens: Profiles, Home, Module (setup + module Hub), Results, Data, Sound, Game map (docs diagrams, lazy)
   dev/                     Dev-only tools (e.g. ?gallery); excluded from production builds
   env.d.ts                 Build-time constants (__APP_VERSION__ from package.json)
 PATCHNOTES.md              Game-style changelog: one entry per change
@@ -52,8 +57,10 @@ docs/
   MENTAL-MATH.md           Mental-math strategy catalogue, reasoning model, slips
   AUDIO.md                 Sound/music slots, moods, adding sounds
   INPUT-PACE.md            Input-time measurement and the per-equation allowance algorithm
+  FORGE.md                 Forge puzzles (order of operations): rules, levels, traps, board, controls, thinkers
   DECISIONS.md             Why things are the way they are (ADR log)
-  modules/math-monster.md  Module 1 internals (encounters, forms, spirits)
+  modules/math-monster.md  Math Monster internals (encounters, forms, spirits)
+  modules/maze-duel.md     Maze Duel rules, board generation, Glitch
   lore/WORLD.md            Setting, spirits, writing rules (creature data itself lives in creatures.ts)
   examples/                Example content packs
 ```
@@ -70,13 +77,15 @@ docs/
 - **Input time vs think time**: `firstInputMs` = think time (equation shown → first input movement). `typingMs` = input time (first movement → answer). Games add `InputPace.allowance()` to each equation's travel time.
 - **Content pack**: zod-validated JSON content for a module, e.g. a worksheet. It is the target format for the MCP server.
 - **Progress**: long-lived per-player module state (e.g. befriended spirits), in the IndexedDB `progress` store via `getProgress`/`saveProgress`.
-- **Mode** (Math Monster): `adventure` (fight & befriend), `pack` (worksheet), `practice` (staged classroom: you and your companion each answer your own column; the companion is a seeded bot with a maths **mastery** of 0–5). All modes share `useMathSession`.
+- **Mode** (Math Monster): `adventure` (fight & befriend; boss rounds are Forge rounds), `pack` (worksheet), `practice` (staged classroom: you and your companion each answer your own column; the companion is a seeded bot with a maths **mastery** of 0–5), `forge` (Forge workshop: one lesson at a level of its own 6-level ladder, alone or with the companion, `ForgePractice`). The equation modes share `useMathSession`.
+- **Forge puzzle** (`core/math/forge`): make the target using **every** piece (numbers, signs, brackets); the challenge is the order of operations. Board state is pure (`forgeTake/Drop/Nav/Primary/Secondary/Check…`); games render it with `ForgeBoardView`.
+- **Duel / piece / stone** (Maze Duel): each right answer is a *piece*: build one square, drop a *stone* next to the rival, or step back. Paths carry a number changed by operator squares; the gate needs exactly its target.
 - **Encounter / round / form**: in Math Monster, one spirit is fought over 5 rounds, one form per round. Round 5 is the boss (the shard), and beating it purifies the spirit.
 
 ## Rules and invariants
 
 1. **Modules are isolated.** `core/` doesn't know about specific modules, except `core/modules/registry.ts`. Modules import from `core/`, never from other modules.
-2. **Game logic stays pure.** Engines have no React, DOM, `Date.now()` or `Math.random()`. Use the engine clock and the seeded RNG (`rng.ts`). Every rule change needs an engine test.
+2. **Game logic stays pure.** Engines have no React, DOM, `Date.now()` or `Math.random()`. Use the engine clock and the seeded RNG (`core/math/rng.ts`). Every rule change needs an engine test.
 3. **Every input path goes through actions.** A new interaction must work with keyboard, touch *and* gamepad. Add it to the module's `ControlScheme` and its `help` text.
 4. **Record, don't lose, data.** Player-relevant events go to `telemetry.log('<module>.<event>', data, device)`, and each event kind must be documented in [docs/TELEMETRY.md](docs/TELEMETRY.md). Never put personal data beyond the profile name or avatar into telemetry or logs.
 5. **Telemetry ≠ logs.** Telemetry answers "how did the child do?". Logs answer "what did the app do / why did it break?". See [docs/LOGGING.md](docs/LOGGING.md).
@@ -88,6 +97,7 @@ docs/
 11. **Line endings are LF** (`.gitattributes`). Scripted edits must not write CRLF (Python on Windows does this by default; use `newline='\n'`).
 12. **Menus must work with only a controller.** Every interactive element is `data-focusable`. No `window.confirm/prompt` (use `ConfirmButton`), and no text entry without `OnScreenKeyboard`.
 13. **Sound goes through `audio`.** Use `audio.sfx(slot)` / `audio.music(slot)`. Add new moments as slots with mood-tagged variants in `core/audio/library.ts`, and keep "wrong" sounds gentle.
+14. **Share through `core/`, never between modules.** Number entry, the pause menu, the heroine, thought bubbles and maths problems live in `core/`. If a second module needs something from a module, move it into `core/` first.
 
 ## Common tasks
 
@@ -126,4 +136,4 @@ When you change behaviour, update the doc that describes it **in the same change
 | commands or setup | this file + `README.md` |
 | a dependency, tool or browser API | `README.md` → "Tools and technologies" (the README has no roadmap/"Next" section) |
 
-Diagrams are Mermaid in Markdown, so edit them as text. GitHub and VS Code (with a Mermaid extension) render them.
+Diagrams are Mermaid in Markdown, so edit them as text. GitHub and VS Code (with a Mermaid extension) render them, and so does the app's **🗺️ Game map** (it reads `docs/ARCHITECTURE.md`, `docs/FORGE.md`, `docs/MENTAL-MATH.md` and `docs/modules/*.md`). A diagram that doesn't parse shows an error box there, so check new ones in the Game map.

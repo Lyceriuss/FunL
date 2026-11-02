@@ -116,3 +116,42 @@ Format: **ID · date · title**, then Decision / Why / Trade-offs.
 - Why: on some devices, especially the controller dial, entering the answer took longer than thinking of it, and equations were lost to slow *input*. The curve was tuned for keyboard, so keyboard players stay the same and others get exactly what they need.
 - Trade-offs: the allowance is based on the device in use when an equation appears (switching device mid-equation isn't re-timed). Only slower-than-keyboard input is compensated; a fast typist doesn't get less time. The Speed setting is the way to make it harder.
 
+**D24 · 2026-10-24 · Maze Duel: two mirrored mazes that meet only at the gate**
+- Decision: the board is mirror-symmetric with a solid middle column (only the gate is open), so each side has its own maze. Interaction is the race itself plus stones (3 each), which may not seal a side off completely or go next to the gate. A duel that reaches 140 pieces is a draw.
+- Why: with a shared middle, both sides often needed the same corridor into the gate. Since "you may not seal the other side off" forbade either from taking it, AI-against-AI simulations ended in standoffs (5 of 30 boards). Separate mazes remove that whole class of deadlock. A 30-board AI-against-AI test now finishes every duel.
+- Trade-offs: paths can't block each other directly; only stones interfere. Other ways to interfere (e.g. twisting an operator square on the rival's side) can be added later as new piece types.
+
+**D25 · 2026-10-24 · Shared game pieces live in `core/`**
+- Decision: before Maze Duel, number entry (keypad, dial, dock), the pause menu, the heroine, the thought bubble and the maths problem code moved from `math-monster` into `core/math` and `core/ui`. Modules use them from there.
+- Why: modules must not import each other (rule 1), and copying code would let the two games drift apart (e.g. the controller dial behaving differently).
+- Trade-offs: the shared CSS keeps its `mm-` class names to avoid touching every Math Monster view; new shared pieces use neutral names (`think-bubble`).
+
+**D26 · 2026-10-24 · Rivals and companions think with the same brain, at the player's pace**
+- Decision: Glitch's answers come from `core/mental-math` `think()` (proficiency by difficulty), shown step by step in the shared thought bubble. Its think time also gets the player's input-pace allowance.
+- Why: children learn from seeing *how* someone calculates and where the reasoning slips. The allowance keeps the race about maths, not about whether you're on a controller dial or a keyboard.
+- Trade-offs: on Hard, Glitch can still be faster than a young child. Easy is the default.
+
+**D27 · 2026-10-24 · Forge puzzles: use every piece, prefer puzzles with a trap**
+- Decision: a Forge puzzle gives a target and a set of pieces, and **all** pieces must be used, so the only question is the order (and where the brackets go). From level 2 on, the generator prefers puzzles with a *trap*: an arrangement that makes the target when read left to right with no rules, but not with the real order of operations. Every puzzle must have at least two different results across arrangements.
+- Why: the order of operations is only learned when ignoring it gives a believable wrong answer. "Use every piece" keeps one clear goal and makes checking simple, and traps are exactly what the companion's left-to-right slip falls into, so children see the mistake made and explained.
+- Trade-offs: a few puzzles have several solutions (any is accepted). The search over arrangements costs about 1–2 ms per puzzle.
+
+**D28 · 2026-10-24 · The Forge lives in the Adventure (boss rounds) and the classroom, not in a separate module**
+- Decision: forge puzzles are a boss-round type in Math Monster's Adventure (3 seals break the shard, a gentle charge bar costs a life but never the puzzle) and a classroom practice mode. Maze Duel stays as a separate module for now. The puzzle itself is a core kit, so other games can bring it into a shared adventure later.
+- Why: the user wants one overarching adventure with each kind of maths encountered there and practised in the classroom, rather than separate games side by side.
+- Trade-offs: the Adventure engine now has two round types. Forge rounds don't use the speed setting's lanes, only its pace (the charge time is divided by the speed setting).
+
+**D29 · 2026-10-24 · Menu navigation ranks by edge distance, row/column first**
+- Decision: `moveFocus` picks, among items whose centre lies in the pressed direction, those in the same row (left/right) or column (up/down) first, ranked by the gap between edges.
+- Why: ranking by centres skipped wide cards right below a small one (the classroom "Continue" and "Forge practice" cards) and sent "right" along the top bar into the content.
+
+**D30 · 2026-11-02 · The Forge workshop has its own ladder of levels to unlock**
+- Decision: Forge practice is a ladder of 6 levels, separate from the equation classroom stages. A lesson is 8 puzzles at one level; 6 clean puzzles (within 2 tries, no hint) pass it and unlock the next level. It replaces v0.12's adaptive tier, which changed level inside a lesson. Open to everyone; the companion joins when there is one. The lesson ends when the child finishes.
+- Why: the user wants to "progress on both separately" with visible unlocks, and to reach the Forge in practice before having a companion. A fixed level per lesson makes progress clear and lets children replay a level they like.
+- Trade-offs: no automatic step down within a lesson; a struggling child replays the level (hints still help). Old saves are mapped onto the new levels.
+
+**D31 · 2026-11-02 · The Game map draws the docs' diagrams in the app**
+- Decision: an in-app 🗺️ Game map renders the Mermaid diagrams from `docs/` (imported as raw Markdown) with Mermaid 11, loaded only when the screen opens (`React.lazy` + dynamic import).
+- Why: the user wants to understand the game's structure from inside the app. Reading the docs keeps one source of truth, so the map can't drift from the documentation.
+- Trade-offs: Mermaid is large (≈1.5 MB of lazily loaded chunks) and brings KaTeX, which `npm audit` flags as low severity; only our own diagrams are rendered, with Mermaid's strict security level.
+

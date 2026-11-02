@@ -1,7 +1,8 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { input } from '../../core/input/InputManager';
-import { useActions, useControlScheme } from '../../core/input/hooks';
-import type { Action, ActionEvent, InputDevice } from '../../core/input/types';
+import { useActions } from '../../core/input/hooks';
+import type { Action, ActionEvent, InputDevice, NavDirection } from '../../core/input/types';
+import { forgeControls } from '../../core/ui/forge/controls';
 import { audio } from '../../core/audio';
 import { getLogger } from '../../core/log/logger';
 import type { GameResult } from '../../core/modules/types';
@@ -9,8 +10,8 @@ import type { TelemetrySession } from '../../core/telemetry/TelemetrySession';
 import type { PaceHandle } from '../../core/pace/usePace';
 import { mathControls } from './controls';
 import type { EngineEvent, MathMonsterEngine } from './engine';
-import { DIAL_DEADZONE, dialDigitAt, rotateDial } from './dialLayout';
-import { KEYPAD_KEYS, keypadIndexFor } from './keypadLayout';
+import { DIAL_DEADZONE, dialDigitAt, rotateDial } from '../../core/ui/number-entry/dialLayout';
+import { KEYPAD_KEYS, keypadIndexFor } from '../../core/ui/number-entry/keypadLayout';
 
 const log = getLogger('math-monster');
 /** Engine events worth a diagnostic log line (everything is in telemetry anyway). */
@@ -38,7 +39,23 @@ export function useMathSession(opts: {
   pace?: PaceHandle;
 }) {
   const { engine, telemetry, ready } = opts;
-  useControlScheme(mathControls);
+  // Controls follow the round: number entry, or the Forge board in Forge boss
+  // rounds. Switched from the engine state (every frame and after every
+  // action), not from React renders. While paused, menus own the controls.
+  const syncScheme = () => {
+    if (engine.state.phase === 'paused') return;
+    const want = engine.isForgeRound() ? forgeControls : mathControls;
+    if (input.getScheme() !== want) input.setScheme(want);
+  };
+  const syncRef = useRef(syncScheme);
+  useLayoutEffect(() => {
+    syncRef.current = syncScheme;
+  });
+  useLayoutEffect(() => {
+    const prev = input.getScheme();
+    syncRef.current();
+    return () => input.setScheme(prev);
+  }, [engine]);
   const [, setFrame] = useState(0);
   const device = useRef<InputDevice>(input.lastDevice);
   const [lastDevice, setLastDevice] = useState<InputDevice>(input.lastDevice);
@@ -84,9 +101,10 @@ export function useMathSession(opts: {
       const dt = Math.min(100, now - last);
       engine.tick(dt);
       last = now;
-      // Left stick points at a digit on the dial.
+      syncRef.current();
+      // Left stick points at a digit on the dial (not in Forge rounds: there it moves the cursor).
       const stick = input.stick();
-      if (stick.magnitude > DIAL_DEADZONE) {
+      if (!engine.isForgeRound() && stick.magnitude > DIAL_DEADZONE) {
         // Input time starts the moment the player starts moving the controller.
         engine.markInputStart();
         const d = dialDigitAt(stick.angle);
@@ -152,9 +170,30 @@ export function useMathSession(opts: {
     return () => audio.duck(false);
   }, [paused]);
 
+  /** Forge round input (controller, keyboard, and touch via the handlers below). */
+  const forgeAction = (a: Action): void => {
+    if (a.type === 'nav' && 'dir' in a) {
+      if (engine.forgeNav(a.dir as NavDirection)) audio.sfx('menuMove');
+    } else if (a.type === 'forge.a') {
+      const holding = engine.state.forge?.board.held !== null;
+      if (engine.forgePrimary()) audio.sfx(holding && engine.state.forge?.board.held === null ? 'pieceSnap' : 'piecePick');
+    } else if (a.type === 'forge.x') {
+      if (engine.forgeSecondary()) audio.sfx('piecePick');
+    } else if (a.type === 'forge.y') {
+      engine.forgeCheck();
+    } else if (a.type === 'forge.key') {
+      if (engine.forgeQuick(String(a.value))) audio.sfx('piecePick');
+    }
+  };
+
   useActions((e: ActionEvent) => {
     device.current = e.device;
     const a = e.action;
+    if (a.type !== 'pause' && engine.isForgeRound()) {
+      forgeAction(a);
+      syncScheme();
+      return;
+    }
     // Any controller action (turning the dial, A, X) starts the input clock too.
     if (e.device === 'gamepad' && a.type !== 'pause') engine.markInputStart();
     if (a.type === 'pause') {
@@ -186,5 +225,30 @@ export function useMathSession(opts: {
     input.dispatch({ type: 'math.digit', value: digit }, dev, `Dial:${digit}`);
   };
 
-  return { state, paused, lastDevice, dial, dialFlash, pressed, onKeypadPress, onDialPick, finish, finished, device };
+  // Touch / mouse on the Forge board.
+  const touch = (dev: InputDevice, kind: string, data: Record<string, unknown> = {}) => {
+    device.current = dev;
+    setLastDevice(dev);
+    telemetry.log('math.forge.tap', { kind, ...data }, dev);
+  };
+  const forge = {
+    take: (id: number, dev: InputDevice) => {
+      touch(dev, 'take', { piece: id });
+      if (engine.forgeTake(id)) audio.sfx('piecePick');
+    },
+    drop: (gap: number, dev: InputDevice) => {
+      touch(dev, 'drop', { gap });
+      if (engine.forgeDrop(gap)) audio.sfx('pieceSnap');
+    },
+    stash: (dev: InputDevice) => {
+      touch(dev, 'stash');
+      if (engine.forgeStash()) audio.sfx('piecePick');
+    },
+    check: (dev: InputDevice) => {
+      touch(dev, 'check');
+      engine.forgeCheck();
+    },
+  };
+
+  return { state, paused, lastDevice, dial, dialFlash, pressed, onKeypadPress, onDialPick, finish, finished, device, forge };
 }

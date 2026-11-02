@@ -2,7 +2,7 @@ import type { GameModule } from '../../core/modules/types';
 import { mathControls } from './controls';
 import { MathMonsterGame } from './MathMonsterGame';
 import type { MathOptions } from './options';
-import { parseMathPack } from './schema';
+import { parseMathPack } from '../../core/math/schema';
 import { MathHub } from './MathHub';
 
 export const mathMonsterModule: GameModule<MathOptions> = {
@@ -42,6 +42,16 @@ export const mathMonsterModule: GameModule<MathOptions> = {
       default: 'auto',
     },
     {
+      id: 'forgeTime',
+      label: 'Forge time',
+      choices: [
+        { label: 'Relaxed', value: 1.5 },
+        { label: 'Normal', value: 1 },
+        { label: 'Quick', value: 0.7 },
+      ],
+      default: 1,
+    },
+    {
       id: 'lanes',
       label: 'Equations at once',
       choices: [
@@ -66,4 +76,4 @@ export const mathMonsterModule: GameModule<MathOptions> = {
   Component: MathMonsterGame,
 };
 
-export { parseMathPack, MathPackSchema } from './schema';
+export { parseMathPack, MathPackSchema } from '../../core/math/schema';

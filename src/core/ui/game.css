@@ -1,0 +1,126 @@
+/*
+ * Shared in-game UI kit: answer dock (keypad / dial), pause menu, the hero.
+ * Used by every game module; module styles build on these.
+ */
+:root {
+  --cyan: #22d3ee;
+  --pink: #f43f5e;
+  --gold: #fbbf24;
+  --ink: #070514;
+  --glass: rgb(14 10 36 / 0.72);
+  --edge: rgb(255 255 255 / 0.14);
+  --hud-font: 'Chakra Petch', 'Rajdhani', system-ui, sans-serif;
+}
+
+/* ---------- Hero ---------- */
+.mm-hero { width: 100%; overflow: visible; filter: drop-shadow(0 0 14px rgb(34 211 238 / 0.25)); }
+.mm-hero__aura { animation: mm-breathe 2.4s ease-in-out infinite; transform-origin: center; }
+.mm-hero__scarf { transform-origin: 72px 90px; animation: mm-scarf 0.9s ease-in-out infinite alternate; }
+.mm-hero__arm { transform-origin: 98px 100px; transition: transform 0.08s; }
+.mm-hero--attack .mm-hero__arm { transform: rotate(28deg); }
+.mm-hero--attack { animation: mm-lunge 0.3s; }
+.mm-hero--hurt { animation: mm-recoil 0.5s; filter: drop-shadow(0 0 16px #f43f5e) brightness(1.3); }
+
+/* ---------- Dock: answer + keypad, bottom-left ---------- */
+.mm-dock {
+  position: absolute; left: 14px; bottom: max(14px, env(safe-area-inset-bottom)); z-index: 6;
+  display: flex; flex-direction: column; gap: 8px; width: 200px;
+  padding: 10px; background: var(--glass); border: 1px solid var(--edge);
+  backdrop-filter: blur(8px);
+  clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 0 100%);
+}
+.mm-dock--compact { width: 170px; }
+.mm-answer {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
+  padding: 4px 10px; border-bottom: 2px solid var(--cyan);
+  background: linear-gradient(90deg, rgb(34 211 238 / 0.12), transparent);
+}
+.mm-answer.is-wrong { border-color: var(--pink); animation: mm-jolt 0.35s; background: linear-gradient(90deg, rgb(244 63 94 / 0.25), transparent); }
+.mm-answer__label { font-size: 10px; letter-spacing: 0.2em; color: #94a3b8; }
+.mm-answer__value { font-size: 32px; font-weight: 700; font-style: italic; min-width: 2ch; text-align: right; text-shadow: 0 0 10px rgb(34 211 238 / 0.6); }
+.mm-answer__placeholder { opacity: 0.3; animation: mm-caret 1s steps(1) infinite; }
+
+.mm-keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; }
+.mm-keypad.is-disabled { opacity: 0.6; }
+.mm-key {
+  height: 44px; border: 1px solid var(--edge); background: rgb(255 255 255 / 0.06); color: #f8fafc;
+  font-family: var(--hud-font); font-size: 20px; font-weight: 700; cursor: pointer;
+  clip-path: polygon(6px 0, 100% 0, calc(100% - 6px) 100%, 0 100%);
+  transition: background 0.08s, transform 0.06s; touch-action: manipulation;
+}
+.mm-key--erase { background: rgb(244 63 94 / 0.22); }
+.mm-key--fire { background: linear-gradient(135deg, #0891b2, #22d3ee); color: var(--ink); }
+.mm-key.is-pressed { background: rgb(255 255 255 / 0.4); transform: scale(0.94); }
+.mm-key.has-cursor { background: rgb(34 211 238 / 0.35); box-shadow: inset 0 0 0 2px var(--cyan); }
+
+/* ---------- Radial number dial (controller) ---------- */
+.mm-dock--dial { width: 230px; }
+.mm-dial { position: relative; width: 100%; aspect-ratio: 1; border-radius: 50%;
+  background: radial-gradient(circle, rgb(255 255 255 / 0.05) 0 45%, rgb(34 211 238 / 0.08) 46% 70%, rgb(255 255 255 / 0.04) 71%);
+  border: 1px solid var(--edge); }
+.mm-dial__needle {
+  position: absolute; left: 50%; top: 50%; width: 4px; height: 30%; margin-left: -2px;
+  transform-origin: 50% 0; background: linear-gradient(var(--cyan), transparent);
+  translate: 0 -100%; transform-origin: 50% 100%; border-radius: 2px; box-shadow: 0 0 10px var(--cyan);
+  transition: transform 0.08s ease-out;
+}
+.mm-dial__num {
+  position: absolute; width: 38px; height: 38px; margin: -19px 0 0 -19px; border-radius: 50%;
+  border: 1px solid var(--edge); background: rgb(255 255 255 / 0.06); color: #f8fafc;
+  font-family: var(--hud-font); font-size: 19px; font-weight: 700; cursor: pointer;
+  transition: transform 0.08s, background 0.08s;
+}
+.mm-dial__num.is-selected { background: linear-gradient(135deg, #0891b2, #22d3ee); color: var(--ink); transform: scale(1.22); box-shadow: 0 0 16px rgb(34 211 238 / 0.8); }
+.mm-dial__num.is-pressed { transform: scale(0.9); background: white; }
+.mm-dial__hub {
+  position: absolute; inset: 31%; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  font-size: 10px; color: #cbd5e1; letter-spacing: 0.04em; background: rgb(5 3 15 / 0.6); pointer-events: none;
+}
+.mm-btn { display: inline-grid; place-items: center; width: 15px; height: 15px; border-radius: 50%; font-size: 9px; color: #050314; margin-right: 3px; }
+.mm-btn--a { background: #4ade80; }
+.mm-btn--x { background: #60a5fa; }
+.mm-btn--y { background: #facc15; }
+@media (max-width: 640px) and (orientation: portrait) {
+  .mm-dock--dial { width: auto; }
+  .mm-dock--dial .mm-dial { width: min(200px, 52vw); margin-left: auto; }
+}
+@media (max-height: 500px) and (orientation: landscape) {
+  .mm-dock--dial { width: 170px; }
+  .mm-dial__num { width: 28px; height: 28px; margin: -14px 0 0 -14px; font-size: 14px; }
+}
+
+/* Phones in portrait: dock becomes a bottom bar so it never covers the action. */
+@media (max-width: 640px) and (orientation: portrait) {
+  .mm-dock { position: relative; left: 0; bottom: 0; width: auto; margin: 0 10px max(10px, env(safe-area-inset-bottom)); clip-path: none; }
+  .mm-dock--compact { width: auto; }
+  .mm-dock { flex-direction: row; align-items: stretch; padding: 8px; }
+  .mm-answer { flex-direction: column; justify-content: center; align-items: flex-start; border-bottom: none; border-left: 2px solid var(--cyan); min-width: 84px; }
+  .mm-keypad { flex: 1; }
+  .mm-key { height: 38px; font-size: 18px; }
+}
+@media (max-height: 500px) and (orientation: landscape) {
+  .mm-dock { width: 180px; padding: 6px; }
+  .mm-key { height: 34px; font-size: 16px; }
+}
+
+/* ---------- Pause ---------- */
+.mm-pause {
+  position: absolute; inset: 0; z-index: 10; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 14px;
+  background: rgb(5 3 15 / 0.75); backdrop-filter: blur(6px);
+}
+.mm-pause > h2 { font-size: 56px; font-style: italic; letter-spacing: 0.2em; margin: 0 0 12px; text-shadow: 0 0 20px var(--cyan); }
+
+/* Pause → Sound */
+.mm-pause--sound { justify-content: flex-start; align-items: stretch; padding: 16px; gap: 10px; }
+.mm-pause__sound-head { display: flex; align-items: center; gap: 16px; }
+.mm-pause__sound-head h2 { font-size: 28px; margin: 0; }
+.mm-pause__sound-body { overflow-y: auto; flex: 1; padding: 4px 8px 24px; background: rgb(11 8 32 / 0.9); }
+
+/* Animations used by the kit (also defined by modules that use them). */
+@keyframes mm-breathe { 50% { transform: scale(1.06); opacity: 0.8; } }
+@keyframes mm-scarf { from { transform: skewY(-4deg) scaleX(0.95); } to { transform: skewY(5deg) scaleX(1.05); } }
+@keyframes mm-lunge { 40% { transform: translateX(18px); } }
+@keyframes mm-recoil { 20% { transform: translateX(-16px) rotate(-6deg); } 60% { transform: translateX(6px); } }
+@keyframes mm-jolt { 0%, 100% { translate: 0; } 20% { translate: -8px; } 40% { translate: 8px; } 60% { translate: -5px; } 80% { translate: 5px; } }
+@keyframes mm-caret { 50% { opacity: 0; } }

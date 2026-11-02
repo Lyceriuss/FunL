@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { PASS_CORRECT, TOPIC_LADDER, stageConfig, stagePassed } from '../classroom';
 import { MathMonsterEngine, type EngineEvent } from '../engine';
-import { DEFAULT_LEVELS } from '../levels';
-import { GeneratedSource } from '../problems';
+import { DEFAULT_LEVELS } from '../../../core/math/levels';
+import { GeneratedSource } from '../../../core/math/problems';
 
 describe('classroom stages', () => {
   it('climbs topic by topic, calm then quick', () => {
@@ -13,8 +13,8 @@ describe('classroom stages', () => {
   });
 
   it('has a three-number "find a 10" topic whose sums always contain a ten-pair', async () => {
-    const { generate } = await import('../problems');
-    const { createRng } = await import('../rng');
+    const { generate } = await import('../../../core/math/problems');
+    const { createRng } = await import('../../../core/math/rng');
     const stage = stageConfig(5);
     expect(stage.topic).toMatch(/find a 10/);
     const rng = createRng(2);

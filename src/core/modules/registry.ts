@@ -1,4 +1,5 @@
 import { mathMonsterModule } from '../../modules/math-monster';
+import { mazeDuelModule } from '../../modules/maze-duel';
 import type { GameModule } from './types';
 
 /**
@@ -6,7 +7,7 @@ import type { GameModule } from './types';
  * src/modules/<name>/ and list it here.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const MODULES: GameModule<any>[] = [mathMonsterModule];
+export const MODULES: GameModule<any>[] = [mathMonsterModule, mazeDuelModule];
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function getModule(id: string): GameModule<any> | undefined {

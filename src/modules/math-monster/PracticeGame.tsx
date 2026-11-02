@@ -7,7 +7,7 @@ import { usePace, type PaceHandle } from '../../core/pace/usePace';
 import type { GameProps, GameResult, Settings } from '../../core/modules/types';
 import type { TelemetrySession } from '../../core/telemetry/TelemetrySession';
 import type { TelemetryEvent } from '../../core/telemetry/types';
-import { Hero } from './Art';
+import { Hero } from '../../core/ui/Hero';
 import { PASS_CORRECT, stageConfig, stageLabel, stagePassed, type StageConfig } from './classroom';
 import { MASTERY_MAX, attempt, type CompanionAttempt } from './companion';
 import { CreatureArt, type CreatureMood } from './Creature';
@@ -15,9 +15,10 @@ import { CREATURES, getCreature, type Creature } from './creatures';
 import { AnswerDock } from './Dock';
 import type { EngineEvent, EngineState, SolvedRecord } from './engine';
 import { createEngine, normalTravelMs, sessionSeed, type MathOptions } from './options';
-import { PauseMenu } from './PauseMenu';
-import { createRng } from './rng';
-import type { MathProblem } from './schema';
+import { PauseMenu } from '../../core/ui/PauseMenu';
+import { ThinkBubble } from '../../core/ui/ThinkBubble';
+import { createRng } from '../../core/math/rng';
+import type { MathProblem } from '../../core/math/schema';
 import type { Step } from '../../core/mental-math';
 import {
   classroomUnlocked,
@@ -505,7 +506,7 @@ function ClassroomStage({
         <Seat
           who="pal"
           bubble={null}
-          custom={petShown ? <ThinkBubble job={petShown} steps={visible} /> : null}
+          custom={petShown ? <PetThinkBubble job={petShown} steps={visible} /> : null}
           notes={notes}
         >
           <CreatureArt creature={pal} form={4} mood={palMood} className="pr-pal" />
@@ -549,59 +550,9 @@ function visibleSteps(j: PetJob, now: number): Step[] {
   return steps.slice(0, Math.min(steps.length, Math.floor(f * steps.length) + 1));
 }
 
-/**
- * The companion's thought bubble: the problem, the strategy it picked, its
- * reasoning step by step, and finally its answer. When it's wrong, the step
- * where it slipped is highlighted and it says what went wrong.
- */
-function ThinkBubble({ job, steps }: { job: PetJob; steps: Step[] }) {
-  const r = job.attempt.reasoning;
-  const shown = steps.slice(-4);
-  const hidden = steps.length - shown.length;
-  return (
-    <div className={`pr-think ${job.outcome ? `is-${job.outcome}` : 'is-thinking'}`} aria-live="polite">
-      <div className="pr-think__head">
-        <span className="pr-think__q">{job.problem.text}</span>
-        <span className="pr-think__strategy">💡 {r.strategyLabel}</span>
-      </div>
-      <ol className="pr-think__steps">
-        {hidden > 0 && <li className="pr-think__more">…</li>}
-        {shown.map((s, i) => (
-          <li
-            key={hidden + i}
-            className={[
-              'pr-think__step',
-              `pr-think__step--${s.kind}`,
-              job.outcome === 'wrong' && s.slip ? 'is-slip' : '',
-              !job.outcome && i === shown.length - 1 ? 'is-new' : '',
-            ].join(' ')}
-          >
-            {s.say}
-            {s.note !== undefined && <span className="pr-think__note" title="written down">📝</span>}
-          </li>
-        ))}
-        {!job.outcome && (
-          <li className="pr-think__step pr-dots" aria-label="thinking">
-            <i />
-            <i />
-            <i />
-          </li>
-        )}
-      </ol>
-      {job.outcome && (
-        <div className="pr-think__answer">
-          {job.outcome === 'unsure' ? (
-            <span>…out of time!</span>
-          ) : (
-            <span>
-              {job.problem.text} = {r.answer} {job.outcome === 'right' ? '✓' : '✗'}
-            </span>
-          )}
-        </div>
-      )}
-      {job.outcome === 'wrong' && r.slip && <div className="pr-think__oops">Oops: {r.slip.label}</div>}
-    </div>
-  );
+/** The companion's thought bubble (the shared ThinkBubble, fed from its job). */
+function PetThinkBubble({ job, steps }: { job: PetJob; steps: Step[] }) {
+  return <ThinkBubble question={job.problem.text} reasoning={job.attempt.reasoning} steps={steps} outcome={job.outcome} className="pr-think" />;
 }
 
 function laneTop(lane: number, lanes: number): number {
@@ -850,6 +801,7 @@ function buildSessionResult(
       wrong: sum((r) => r.playerWrong),
       timeouts: sum((r) => r.playerTimeouts),
       solved: stages.flatMap((r) => r.solved),
+      forge: [],
     },
   };
   const summary = summarize(merged, events);

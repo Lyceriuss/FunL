@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { getLogger, logs } from './core/log/logger';
 import { getModule } from './core/modules/registry';
 import type { GameResult, Settings } from './core/modules/types';
@@ -14,11 +14,15 @@ import { SoundScreen } from './screens/SoundScreen';
 import { audio } from './core/audio';
 import { ErrorBoundary } from './core/ui/ErrorBoundary';
 
+// The Game map (docs + diagram renderer) loads only when opened.
+const GameMapScreen = lazy(() => import('./screens/GameMapScreen').then((m) => ({ default: m.GameMapScreen })));
+
 type Route =
   | { name: 'loading' }
   | { name: 'profiles' }
   | { name: 'data'; from: Route }
   | { name: 'sound'; from: Route }
+  | { name: 'map'; from: Route }
   | { name: 'home' }
   | { name: 'module'; moduleId: string }
   | { name: 'game'; moduleId: string; options: unknown; settings: Settings; session: TelemetrySession }
@@ -109,6 +113,12 @@ function Shell() {
       return <DataScreen onBack={() => setRoute(route.from)} />;
     case 'sound':
       return <SoundScreen onBack={() => setRoute(route.from)} />;
+    case 'map':
+      return (
+        <Suspense fallback={<div className="screen" />}>
+          <GameMapScreen onBack={() => setRoute(route.from)} />
+        </Suspense>
+      );
     case 'home':
       return profile ? (
         <HomeScreen
@@ -116,6 +126,7 @@ function Shell() {
           onModule={(moduleId) => setRoute({ name: 'module', moduleId })}
           onSwitchProfile={() => setRoute({ name: 'profiles' })}
           onSound={() => setRoute({ name: 'sound', from: route })}
+          onMap={() => setRoute({ name: 'map', from: route })}
         />
       ) : null;
     case 'module': {

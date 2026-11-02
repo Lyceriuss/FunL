@@ -8,7 +8,7 @@ Long ago, everything in **Lumora** moved to the **Numbersong**. Rivers counted t
 
 Then came **the Static**: a grey, buzzing noise that scrambles the song. Spirits caught in it forget their names and their purpose. Their confusion turns into fear, and their fear turns into fangs, thorns and storms. These are the "monsters".
 
-The player is a **Tuner**: someone who can find the true answer fast. Our Tuner is a young swordswoman with a red ribbon in her ponytail. Every correct answer strikes a clear note of the Numbersong. Enough clear notes and the Static cracks. Each crack lets more of the real spirit show through, which is why the creatures get cuter round by round. The last piece of Static clings on as a **shard**, and breaking it (the boss round) **purifies** the spirit. A purified spirit remembers its name and may choose to travel with the Tuner.
+The player is a **Tuner**: someone who can find the true answer fast. Our Tuner is a young swordswoman with a red ribbon in her ponytail. Every correct answer strikes a clear note of the Numbersong. Enough clear notes and the Static cracks. Each crack lets more of the real spirit show through, which is why the creatures get cuter round by round. The last piece of Static clings on as a **shard**. It can't be struck down: it has to be *unlocked* by **forging seals**, putting numbers and signs back in the order the Numbersong needs (the order of operations). Three seals break the shard and **purify** the spirit. A purified spirit remembers its name and may choose to travel with the Tuner.
 
 ## The spirits
 
@@ -30,6 +30,12 @@ Freed spirits remember who they are, but not everything they knew. The Static sc
 - Companions **think out loud**: their thought bubbles show how they work a sum out (counting on, making ten…). As they regain their Numbersong they move from counting to clever shortcuts.
 - Companions are learners, not teachers: they **must** make believable mistakes before mastery, and they react with feelings (😢 when wrong, 😅 when out of time, ✨ when right).
 - Practice lines (`creature.practice`: `hello`, `improved`, `mastered`) are in the companion's voice and stay encouraging.
+
+## Glitch and the Star Gates (Maze Duel)
+
+**Glitch** (it) is a crumb of the Static that grew a mind of its own: a small violet imp with horns, one big eye and one small one, and flickering static pixels. It isn't evil, just cheeky and very competitive. It loves mazes, hates losing, and thinks out loud (so you can see when it slips).
+
+**Star Gates** are old doors of the Numbersong. Each one opens only for one exact number. Glitch races the Tuner through the number mazes in front of them: whoever arrives carrying exactly the gate's number opens it. Glitch's lines stay playful ("Stone for you!", "Hehehe! Try again?"), never mean.
 
 ## The five forms
 

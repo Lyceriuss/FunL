@@ -3,14 +3,15 @@ import { audio } from '../../core/audio';
 import { getLogger } from '../../core/log/logger';
 import { usePace } from '../../core/pace/usePace';
 import type { GameProps, GameResult } from '../../core/modules/types';
-import { Hero } from './Art';
+import { Hero } from '../../core/ui/Hero';
+import { ForgeBoardView } from '../../core/ui/forge/ForgeBoardView';
 import { BefriendOverlay } from './Befriend';
 import { CreatureArt, type CreatureMood } from './Creature';
 import { getCreature, glowColor, type Creature } from './creatures';
 import { AnswerDock } from './Dock';
 import { BOSS_DEFEAT_MS, type Effect, type EngineEvent, type EngineState } from './engine';
 import { createEngine, sessionSeed, type MathOptions } from './options';
-import { PauseMenu } from './PauseMenu';
+import { PauseMenu } from '../../core/ui/PauseMenu';
 import { encounterOrder, loadSpirits, purify, recordForm, saveSpirits, setCompanion, emptyProgress, type SpiritProgress } from './spirits';
 import { summarize } from './summary';
 import { useMathSession } from './useMathSession';
@@ -42,7 +43,11 @@ export function AdventureGame({ profile, telemetry, options, settings, onFinish 
   // Extra time per equation for how fast this player can *enter* an answer on their device.
   const pace = usePace(profile.id, settings.inputHelp !== 'off');
   const [engine] = useState(() =>
-    createEngine(options, settings, sessionSeed(options), { inputAllowance: (p) => pace.allowance(String(p.answer).length) }),
+    createEngine(options, settings, sessionSeed(options), {
+      inputAllowance: (p) => pace.allowance(String(p.answer).length),
+      // Forge pieces take about as long to place as a digit takes to enter.
+      forgeAllowance: (pieces) => Math.round(pieces * pace.allowance(1) * 0.6),
+    }),
   );
 
   // ----- spirits: who we meet, purification, companion -----
@@ -96,13 +101,15 @@ export function AdventureGame({ profile, telemetry, options, settings, onFinish 
     else if (e.type === 'life.lost') audio.sfx('lifeLost');
     else if (e.type === 'monster.defeated') audio.sfx(e.boss ? 'purified' : 'roundClear');
     else if (e.type === 'game.over') audio.sfx('gameOver');
+    else if (e.type === 'forge.sealed') audio.sfx('sealForged');
+    else if (e.type === 'forge.check' && (e.status === 'wrong' || e.status === 'invalid')) audio.sfx('wrong');
     if (e.type === 'level.start') audio.music(e.boss ? 'boss' : 'adventure');
 
     if (e.type === 'level.start') {
       // The engine schedules the next round at K.O. time; only count the
       // encounter once its first equation actually appears.
       pendingRound.current = { encounter: e.encounter, round: e.round, boss: e.boss };
-    } else if (e.type === 'problem.spawn' && pendingRound.current) {
+    } else if ((e.type === 'problem.spawn' || e.type === 'forge.start') && pendingRound.current) {
       const { encounter, round, boss } = pendingRound.current;
       pendingRound.current = null;
       const c = creatureFor(encounter);
@@ -163,7 +170,8 @@ export function AdventureGame({ profile, telemetry, options, settings, onFinish 
   const onStage: Shown | null = purifying || koBanner ? defeatedShown : current;
   const transforming = !purifying && !!defeatedShown && sinceDefeat >= KO_BANNER_MS && sinceDefeat < KO_BANNER_MS + 600;
 
-  const danger = state.active.some((p) => p.progress > 0.75);
+  const forge = state.forge && (state.phase === 'playing' || state.phase === 'paused') ? state.forge : null;
+  const danger = state.active.some((p) => p.progress > 0.75) || (forge !== null && forge.charge > 0.75);
   const mood: CreatureMood =
     purifying ? 'cheer'
     : koBanner ? 'defeated'
@@ -304,6 +312,9 @@ export function AdventureGame({ profile, telemetry, options, settings, onFinish 
             <span className="mm-banner__big">{current.boss ? 'FINAL ROUND' : `ROUND ${state.round}`}</span>
             <span className="mm-banner__mid">{formInfo.title}</span>
             <span className="mm-banner__small">{formInfo.line}</span>
+            {current.boss && engine.isForgeRound() && (
+              <span className="mm-banner__task">Forge {state.levelConfig.hitsToDefeat} seals to break the shard: put the pieces in the right order!</span>
+            )}
           </div>
         )}
         {koBanner && (
@@ -331,15 +342,38 @@ export function AdventureGame({ profile, telemetry, options, settings, onFinish 
         <div className={`mm-vignette ${hurt ? 'is-on' : ''}`} aria-hidden />
       </div>
 
-      <AnswerDock
-        state={state}
-        lastDevice={session.lastDevice}
-        dial={session.dial}
-        dialFlash={session.dialFlash}
-        pressed={session.pressed}
-        onKeypadPress={session.onKeypadPress}
-        onDialPick={session.onDialPick}
-      />
+      {forge ? (
+        <div className="mm-forge" key={forge.id}>
+          <div className={`mm-forge__charge ${forge.charge > 0.8 ? 'is-danger' : ''}`}>
+            <span className="mm-forge__label">⚡ {formInfo?.title ?? 'Spirit'} attacks when the time runs out</span>
+            <span className="mm-forge__seals">
+              Seals {state.levelConfig.hitsToDefeat - state.monsterHp}/{state.levelConfig.hitsToDefeat}
+            </span>
+          </div>
+          <ForgeBoardView
+            board={forge.board}
+            feedback={forge.feedback}
+            device={session.lastDevice}
+            onTake={session.forge.take}
+            onDrop={session.forge.drop}
+            onStash={session.forge.stash}
+            onCheck={session.forge.check}
+            checkLabel="Forge"
+            // The spirit's attack timer sits inside the row being built.
+            timer={{ kind: 'countdown', left: 1 - forge.charge, ms: forge.chargeMs * (1 - forge.charge) }}
+          />
+        </div>
+      ) : (
+        <AnswerDock
+          state={state}
+          lastDevice={session.lastDevice}
+          dial={session.dial}
+          dialFlash={session.dialFlash}
+          pressed={session.pressed}
+          onKeypadPress={session.onKeypadPress}
+          onDialPick={session.onDialPick}
+        />
+      )}
 
       {paused && !befriend && <PauseMenu onResume={() => engine.resume()} onQuit={() => finish('quit')} />}
       {befriend && <BefriendOverlay creature={befriend} currentCompanion={companion} onChoose={chooseBefriend} />}

@@ -1,4 +1,4 @@
-import { Hero } from '../modules/math-monster/Art';
+import { Hero } from '../core/ui/Hero';
 import { CREATURES } from '../modules/math-monster/creatures';
 import { CreatureArt } from '../modules/math-monster/Creature';
 

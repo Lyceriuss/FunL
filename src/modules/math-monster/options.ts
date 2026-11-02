@@ -1,29 +1,35 @@
 import type { Settings } from '../../core/modules/types';
 import { MathMonsterEngine, type EngineConfig } from './engine';
-import { DEFAULT_LEVELS, levelAt } from './levels';
-import { GeneratedSource, LimitedSource, PackSource, levelsForPack } from './problems';
-import type { LevelConfig, MathPack } from './schema';
+import { DEFAULT_LEVELS, levelAt } from '../../core/math/levels';
+import { GeneratedSource, LimitedSource, PackSource, levelsForPack } from '../../core/math/problems';
+import type { LevelConfig, MathPack } from '../../core/math/schema';
 import { stageConfig } from './classroom';
 
 /**
  * How a Math Monster session is played:
- * - adventure: fight and purify spirits, difficulty rises (presets)
+ * - adventure: fight and purify spirits, difficulty rises (presets); boss rounds are Forge puzzles
  * - pack:      adventure with a fixed worksheet
  * - practice:  staged classroom with your companion (see classroom.ts)
+ * - forge:     Forge practice (order of operations) with your companion (forgePractice.ts)
  */
 export type MathOptions =
   | { mode: 'adventure'; startLevel: number; seed?: number }
   | { mode: 'pack'; pack: MathPack; seed?: number }
-  | { mode: 'practice'; stage: number; companionId: string; seed?: number };
+  | { mode: 'practice'; stage: number; companionId: string; seed?: number }
+  | { mode: 'forge'; companionId: string | null; tier: number; seed?: number };
 
 export function sessionSeed(options: MathOptions): number {
   return options.seed ?? Math.floor(Math.random() * 2 ** 31);
 }
 
 /** Extra engine options from the view, e.g. the input allowance from the player's pace. */
-export type EngineExtras = Pick<EngineConfig, 'inputAllowance'>;
+export type EngineExtras = Pick<EngineConfig, 'inputAllowance'> & {
+  /** Extra Forge charge time for the player's input pace, by number of pieces. */
+  forgeAllowance?: (pieces: number) => number;
+};
 
-export function createEngine(options: MathOptions, settings: Settings, seed: number, extras: EngineExtras = {}): MathMonsterEngine {
+export function createEngine(options: MathOptions, settings: Settings, seed: number, allExtras: EngineExtras = {}): MathMonsterEngine {
+  const { forgeAllowance, ...extras } = allExtras;
   const speedMultiplier = Number(settings.speed ?? 1) || 1;
   const lanes = settings.lanes === 'auto' || settings.lanes === undefined ? 'auto' : Number(settings.lanes);
 
@@ -52,6 +58,8 @@ export function createEngine(options: MathOptions, settings: Settings, seed: num
         roundsPerEncounter: Number.MAX_SAFE_INTEGER, // no boss rounds in class
       });
     }
+    case 'forge':
+      throw new Error('Forge practice has no equation engine (see forgePractice.ts)');
     case 'adventure':
       return new MathMonsterEngine({
         ...extras,
@@ -60,6 +68,8 @@ export function createEngine(options: MathOptions, settings: Settings, seed: num
         startLevel: options.startLevel,
         speedMultiplier,
         lanes,
+        // Boss rounds: forge the seal (order of operations), see core/math/forge.
+        forge: { seed: seed + 7, allowance: forgeAllowance, timeScale: Number(settings.forgeTime ?? 1) || 1 },
       });
   }
 }

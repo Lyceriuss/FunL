@@ -18,7 +18,10 @@ export type SfxSlot =
   | 'companionRight'
   | 'companionWrong'
   | 'menuMove'
-  | 'menuSelect';
+  | 'menuSelect'
+  | 'piecePick'
+  | 'pieceSnap'
+  | 'sealForged';
 
 export interface SfxVariant {
   id: string;
@@ -194,13 +197,65 @@ export const SFX: SfxSlotDef[] = [
       silent,
     ],
   },
+  {
+    slot: 'piecePick',
+    label: 'Pick up a piece',
+    when: 'Forge: picking up a puzzle piece',
+    default: 'lift',
+    variants: [
+      { id: 'lift', name: 'Soft lift', mood: 'light', play: (c, o, t) => tone(c, o, { type: 'sine', note: 79, to: 86, at: t, dur: 0.07, gain: 0.08 }) },
+      { id: 'bubble', name: 'Bubble', mood: 'playful', play: (c, o, t) => tone(c, o, { type: 'sine', note: 70, to: 82, at: t, dur: 0.06, gain: 0.12 }) },
+      { id: 'tap', name: 'Tap', mood: 'subtle', play: (c, o, t) => noise(c, o, { at: t, dur: 0.02, filter: 'bandpass', freq: 2400, gain: 0.08 }) },
+      silent,
+    ],
+  },
+  {
+    slot: 'pieceSnap',
+    label: 'Piece snaps in',
+    when: 'Forge: placing a puzzle piece',
+    default: 'snap',
+    variants: [
+      {
+        id: 'snap',
+        name: 'Magnet snap',
+        mood: 'satisfying',
+        play: (c, o, t) => {
+          noise(c, o, { at: t, dur: 0.025, filter: 'highpass', freq: 3500, gain: 0.12 });
+          tone(c, o, { type: 'triangle', note: 74, to: 69, at: t, dur: 0.07, gain: 0.12 });
+        },
+      },
+      { id: 'wood', name: 'Wooden click', mood: 'warm', play: (c, o, t) => tone(c, o, { type: 'triangle', note: 81, to: 76, at: t, dur: 0.05, gain: 0.14 }) },
+      { id: 'crystal', name: 'Crystal tick', mood: 'magical', play: (c, o, t) => seq(c, o, t, [88, 95], 0.03, { type: 'sine', dur: 0.12, gain: 0.07 }) },
+      silent,
+    ],
+  },
+  {
+    slot: 'sealForged',
+    label: 'Seal forged',
+    when: 'Forge: the row makes exactly the target',
+    default: 'anvil',
+    variants: [
+      {
+        id: 'anvil',
+        name: 'Magic anvil',
+        mood: 'triumphant',
+        play: (c, o, t) => {
+          tone(c, o, { type: 'triangle', note: 64, at: t, dur: 0.5, gain: 0.16 });
+          seq(c, o, t + 0.04, [76, 83, 88, 95], 0.06, { type: 'sine', dur: 0.4, gain: 0.08 });
+        },
+      },
+      { id: 'chord', name: 'Bright chord', mood: 'happy', play: (c, o, t) => chord(c, o, t, [72, 76, 79, 84], { type: 'triangle', dur: 0.6, gain: 0.06 }) },
+      { id: 'sparkle', name: 'Sparkle rise', mood: 'magical', play: (c, o, t) => seq(c, o, t, [84, 88, 91, 96, 100], 0.04, { type: 'sine', dur: 0.25, gain: 0.07 }) },
+      silent,
+    ],
+  },
 ];
 
 // ---------------------------------------------------------------------------
 // Music: small generative loops (eighth-note steps).
 // ---------------------------------------------------------------------------
 
-export type MusicSlot = 'menu' | 'adventure' | 'boss' | 'classroom';
+export type MusicSlot = 'menu' | 'adventure' | 'boss' | 'classroom' | 'duel';
 
 export interface MusicTrack {
   id: string;
@@ -309,6 +364,25 @@ export const MUSIC: MusicTrack[] = [
       if (b === 0 || b === 4) kick(c, o, t, 0.12);
     },
   },
+  {
+    id: 'puzzle-chase',
+    name: 'Puzzle chase',
+    mood: 'playful & tense',
+    bpm: 104,
+    bars: 4,
+    step(c, o, s, t, d) {
+      // Plucky minor arpeggio over a ticking clock: thinking, but in a race.
+      const roots = [57, 53, 55, 52];
+      const r = roots[Math.floor(s / 8) % roots.length];
+      const b = s % 8;
+      const arp = [0, 7, 12, 15, 12, 7, 3, 7];
+      tone(c, o, { type: 'triangle', note: r + arp[b], at: t, dur: d * 0.7, gain: 0.035, lowpass: 2600 });
+      if (b === 0 || b === 4) tone(c, o, { type: 'sine', note: r - 24, at: t, dur: d * 2.5, gain: 0.09 });
+      if (b === 0 || b === 5) kick(c, o, t, 0.13);
+      if (b === 4) snare(c, o, t, 0.04);
+      hat(c, o, t + (b % 2 ? d * 0.12 : 0), b % 2 ? 0.02 : 0.012);
+    },
+  },
 ];
 
 export const MUSIC_SLOTS: MusicSlotDef[] = [
@@ -316,6 +390,7 @@ export const MUSIC_SLOTS: MusicSlotDef[] = [
   { slot: 'adventure', label: 'Adventure', when: 'Normal adventure rounds', default: 'brave' },
   { slot: 'boss', label: 'Boss round', when: 'The final round of an encounter', default: 'tense-pulse' },
   { slot: 'classroom', label: 'Classroom', when: 'Practice classroom', default: 'lofi-keys' },
+  { slot: 'duel', label: 'Maze duel', when: 'Racing Glitch in Maze Duel', default: 'puzzle-chase' },
 ];
 
 export function sfxSlot(slot: SfxSlot): SfxSlotDef {

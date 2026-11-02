@@ -65,6 +65,24 @@ Times are **engine ms** (they stop while paused). `key` is a stable fact id such
 | `math.practice.stage.end` | Practice: `stage`, `passed`, `playerCorrect`, `length`, `petCorrect`, `petWrong`, `petUnfinished`, `companionId`, `masteryBefore`, `masteryAfter`, `unlocked` (highest stage now unlocked). Replaces `math.practice.mastery` (v0.4.0 only) |
 | `math.game.over` / `math.game.complete` | `score`, `level` |
 
+### Forge events (`math.forge.*`)
+
+Forge boss rounds (Adventure) and Forge practice (classroom). `id` is the puzzle instance (practice: puzzle number 1–8). Piece texts use `+ − × ÷ ( )`.
+
+| Kind | Data |
+|---|---|
+| `math.forge.start` | `id`, `key` (intended solution, e.g. `(2+3)×4`), `target`, `tier` (1–4), `pieces`. Adventure adds `chargeMs` (incl.) and `allowanceMs` (extra for the player's input pace) |
+| `math.forge.move` | a piece moved: `id`, `move` (pick · place · return · cancel), `piece`, `from` (pick: tray/row), `gap` (place), `row` (Adventure: the row as text; practice: its length) |
+| `math.forge.check` | `id`, `key`, `status` (incomplete · invalid · wrong · right), `value` (what the row makes), `text` (the row), `error` (invalid: code such as `two-numbers`, `two-ops`, `bracket-open`, `ends-with-op`), `tries` (complete checks so far), `ms` (since the puzzle appeared). Adventure adds `charge` (0–1) |
+| `math.forge.sealed` | `id`, `key`, `target`, `tier`, `tries`, `ms`. Adventure: `charge`, `chargesLost`, `points`; practice: `hinted` |
+| `math.forge.charge` | Adventure: the spirit's charge filled (a life is lost; `math.life.lost` follows): `id`, `key` |
+| `math.forge.tap` | touch/mouse on the board: `kind` (take · drop · stash · check), `piece` / `gap` |
+| `math.forge.practice.start` | `tier` (Forge level 1–6), `length`, `passAt` (clean puzzles needed), `mastery` and `companionId` (null when practising alone) |
+| `math.forge.hint` | `id`, `key`, `hint` (after 2 wrong tries) |
+| `math.forge.companion` | the companion answered its puzzle `no`: `key`, `tier`, `outcome` (right · wrong), `strategy`, `slip` (`left-to-right` · `close-enough` · null), `text` (its arrangement), `claimed` (what it believes it makes), `actual`, `thinkMs` |
+| `math.forge.practice.end` | `tier`, `sealed`, `clean` (within 2 tries, no hint), `passed`, `length`, `petRight`, `petWrong` (null when alone), `ms`. Since v0.13 the lesson ends when the player finishes |
+| `math.forge.unlock` | `level`: a passed lesson unlocked a new Forge level |
+
 ### Math Monster session summary
 
 | Field | Meaning |
@@ -78,6 +96,8 @@ Times are **engine ms** (they stop while paused). `key` is a stable fact id such
 | `misinputs` | `missedTaps`, `unmappedKeys`, `emptySubmits`, `backspaces` |
 | `inputPace` | on the device used most: `device`, `medianInputMs`, `medianMsPerDigit`, `answers` |
 
+Adventure sessions with Forge rounds add `summary.forge`: `{ sealed, medianMs, firstTry, byTier: { [tier]: { sealed, medianMs, medianTries } } }`. Forge workshop sessions have `summary.forgePractice`: `{ lessons: [{ tier, sealed, clean, passed, ms, petRight, petWrong }], sealed, clean, hinted, levelsPassed, medianMs, companion, puzzles: [{ key, tier, target, tries, ms, hinted }] }` and `playMs`.
+
 Practice sessions add `summary.practice`: `{ companionId, stagesPlayed, stagesCleared, highestStage, unlocked, masteryAfter, companionCorrect, companionAnswered, stages: [{ stage, topic, pace, length, completed, passed, playerCorrect, playerWrong, playerTimeouts, petCorrect, petWrong, petUnfinished, masteryBefore, masteryAfter, score, bestStreak, playMs, level }] }`. The top-level summary fields cover all stages together.
 
 ### Input pace record (`progress` store, key `input-pace:<profileId>`)
@@ -86,7 +106,36 @@ Practice sessions add `summary.practice`: `{ companionId, stagesPlayed, stagesCl
 
 ### Math Monster progress record (`progress` store, key `math-monster:<profileId>`)
 
-`{ version: 1, spirits: { [creatureId]: { encountered, bestForm, purifiedAt?, mastery? } }, companion: creatureId | null, classroom?: { unlocked } }`. `classroom.unlocked` is the highest practice stage the player may start. `mastery` is the number of completed practice lessons (0–5).
+`{ version: 1, spirits: { [creatureId]: { encountered, bestForm, purifiedAt?, mastery? } }, companion: creatureId | null, classroom?: { unlocked, forgeTier? } }`. `classroom.forgeUnlocked` is the highest Forge workshop level unlocked (1–6). (`classroom.forgeTier` from v0.12 is read once and mapped: 1→1, 2→2, 3→4, 4→5.) `classroom.unlocked` is the highest practice stage the player may start. `mastery` is the number of completed practice lessons (0–5).
+
+## Maze Duel (`duel.*`)
+
+Times are engine time from the start of the duel (pauses excluded). Cells are numbered `y × 9 + x` (`x` 0–8 left → right, `y` 0–6 top → bottom).
+
+| Kind | Data |
+|---|---|
+| `duel.start` | `seed` (board + equations), `target`, `shortest` (squares in the shortest route), `rival` (easy · medium · hard) |
+| `duel.problem.show` | your equation: `id`, `key`, `text`, `answer` |
+| `duel.input.start` | `id`: you started entering (first stick movement, button, key or tap) |
+| `duel.input.digit` / `duel.input.backspace` | `digit`, `value` (input so far) |
+| `duel.answer.correct` / `duel.answer.wrong` | `id`, `key`, `text`, `answer`, `given`, `responseMs` (shown → submit), `firstInputMs` (think time), `typingMs` (input time), `digits` |
+| `duel.answer.empty` | submit with nothing typed |
+| `duel.mode` | `mode`: you switched build ↔ block |
+| `duel.move` | a piece was played: `who` (you · rival), `kind` (build · block · back), `cell`, `x`, `y`, `value` (that side's number after the move), `tile` (e.g. `×2`, `open`, `gate`), `good` (builds: a route to the gate still exists) |
+| `duel.move.denied` | `who`, `reason` (e.g. block mode without stones) |
+| `duel.tap` | `cell`: a touch/mouse tap on a highlighted square |
+| `duel.rival.think` | Glitch starts an equation: `id`, `key`, `strategy` (mental-math strategy id), `thinkMs` (incl. your input-pace allowance) |
+| `duel.rival.answer` | `id`, `key`, `answer`, `given`, `correct`, `strategy`, `slip` (slip id when wrong), `thinkMs` |
+| `duel.pause` / `duel.resume` | `reason` (player · hidden) |
+| `duel.game.end` | `result` (won · lost · draw), `moves` (pieces played by both), `timeMs` |
+
+### Maze Duel session summary
+
+`result`, `rival`, `topic`, `board` (`seed`, `target`, `shortest`), `durationMs`, `answers`, `correct`, `wrong`, `accuracy`, `medianResponseMs`, `medianThinkMs`, `medianInputMs` (over correct answers), `you` and `glitch` (`pathLength`, `value`, `builds`, `blocks`, `backs`; Glitch also `answers`, `correct`), `wrongFacts[]` (`key`, `given`, `answer`), `device`.
+
+### Maze Duel record (`progress` store, key `maze-duel:<profileId>`)
+
+`{ version: 1, record: { easy | medium | hard: { won, lost, draw } }, bestWinAnswers: number | null }`: results against Glitch per difficulty, and the fewest correct answers it took to win.
 
 ## Useful derived metrics
 

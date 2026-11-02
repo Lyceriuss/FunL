@@ -71,6 +71,8 @@ function moveFocus(root: HTMLElement, dir: NavDirection): boolean {
     return true;
   }
   const from = center(current);
+  const fromRect = current.getBoundingClientRect();
+  const horizontal = dir === 'left' || dir === 'right';
   let best: HTMLElement | null = null;
   let bestScore = Infinity;
   for (const el of items) {
@@ -78,10 +80,24 @@ function moveFocus(root: HTMLElement, dir: NavDirection): boolean {
     const c = center(el);
     const dx = c.x - from.x;
     const dy = c.y - from.y;
-    const primary = dir === 'left' ? -dx : dir === 'right' ? dx : dir === 'up' ? -dy : dy;
-    if (primary <= 1) continue;
-    const secondary = dir === 'left' || dir === 'right' ? Math.abs(dy) : Math.abs(dx);
-    const score = primary + secondary * 2;
+    // Only items whose centre lies in that direction.
+    const ahead = dir === 'left' ? -dx : dir === 'right' ? dx : dir === 'up' ? -dy : dy;
+    if (ahead <= 1) continue;
+    // Rank by the gap between the edges, not the centres, so a wide card
+    // right below isn't skipped for a small one further down.
+    const r = el.getBoundingClientRect();
+    const primary = Math.max(
+      0,
+      dir === 'left' ? fromRect.left - r.right : dir === 'right' ? r.left - fromRect.right : dir === 'up' ? fromRect.top - r.bottom : r.top - fromRect.bottom,
+    );
+    const sideGap = horizontal
+      ? Math.max(0, fromRect.top - r.bottom, r.top - fromRect.bottom)
+      : Math.max(0, fromRect.left - r.right, r.left - fromRect.right);
+    // "Beam": items in the same row (left/right) or column (up/down) always win
+    // over items off to the side, so e.g. right along a header reaches its end.
+    const inBeam = sideGap === 0;
+    const centreOffset = horizontal ? Math.abs(dy) : Math.abs(dx);
+    const score = primary + sideGap * 2 + centreOffset * 0.01 + (inBeam ? 0 : 100_000);
     if (score < bestScore) {
       bestScore = score;
       best = el;

@@ -1,4 +1,5 @@
-import type { InputDevice } from '../../core/input/types';
+import '../game.css';
+import type { InputDevice } from '../../input/types';
 import { DIAL_DIGITS, DIAL_STEP } from './dialLayout';
 
 /**

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { dialDigitAt, rotateDial } from '../dialLayout';
+import { dialDigitAt, rotateDial } from '../../../core/ui/number-entry/dialLayout';
 
 describe('radial dial', () => {
   it('maps stick angles to digits: 0 at the top, clockwise, 36° apart', () => {

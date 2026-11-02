@@ -1,4 +1,5 @@
 import { useId } from 'react';
+import './game.css';
 
 /**
  * The player's hero: a cel-shaded anime swordswoman with a long ponytail and

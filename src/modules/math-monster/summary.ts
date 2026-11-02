@@ -22,6 +22,8 @@ export interface MathSummary {
   /** Input time (first input movement → answer) on the device used most, for correct answers. */
   inputPace: { device: string | null; medianInputMs: number | null; medianMsPerDigit: number | null; answers: number };
   playMs: number;
+  /** Forge (order of operations) puzzles sealed, when there were any. */
+  forge?: { sealed: number; medianMs: number | null; firstTry: number; byTier: Record<string, { sealed: number; medianMs: number | null; medianTries: number | null }> };
 }
 
 export function summarize(state: SummaryInput, events: readonly TelemetryEvent[]): MathSummary {
@@ -61,7 +63,17 @@ export function summarize(state: SummaryInput, events: readonly TelemetryEvent[]
     },
     playMs: Math.round(state.time),
     inputPace: inputPaceOf(events),
+    ...(state.stats.forge.length ? { forge: forgeOf(state.stats.forge) } : {}),
   };
+}
+
+function forgeOf(list: SummaryInput['stats']['forge']): NonNullable<MathSummary['forge']> {
+  const byTier: NonNullable<MathSummary['forge']>['byTier'] = {};
+  for (const t of new Set(list.map((r) => r.tier))) {
+    const rs = list.filter((r) => r.tier === t);
+    byTier[t] = { sealed: rs.length, medianMs: median(rs.map((r) => r.ms)), medianTries: median(rs.map((r) => r.tries)) };
+  }
+  return { sealed: list.length, medianMs: median(list.map((r) => r.ms)), firstTry: list.filter((r) => r.tries === 1).length, byTier };
 }
 
 function inputPaceOf(events: readonly TelemetryEvent[]): MathSummary['inputPace'] {

@@ -1,6 +1,6 @@
 import { PRACTICE_LENGTH } from './companion';
-import { levelAt, DEFAULT_LEVELS } from './levels';
-import type { LevelConfig } from './schema';
+import { levelAt, DEFAULT_LEVELS } from '../../core/math/levels';
+import type { LevelConfig } from '../../core/math/schema';
 
 /**
  * The practice classroom's stage ladder. Every stage is one lesson of

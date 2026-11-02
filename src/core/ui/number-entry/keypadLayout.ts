@@ -1,5 +1,5 @@
-import type { Action, NavDirection } from '../../core/input/types';
-import { MathAction } from './controls';
+import type { Action, NavDirection } from '../../input/types';
+import { NumberAction as MathAction } from './actions';
 
 export interface KeypadKey {
   label: string;
